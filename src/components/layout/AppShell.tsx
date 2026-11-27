@@ -4,13 +4,18 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 
 /**
- * Core responsive application shell combining sidebar navigation, header, and main content.
+ * Core responsive application shell combining sidebar navigation, header, and main content canvas.
  */
 export function AppShell() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   const handleCloseSidebar = useCallback(() => {
     setIsSidebarOpen(false)
+  }, [])
+
+  const handleToggleCollapse = useCallback(() => {
+    setIsSidebarCollapsed((prev) => !prev)
   }, [])
 
   useEffect(() => {
@@ -27,14 +32,22 @@ export function AppShell() {
   }, [isSidebarOpen])
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />
+    <div className="flex min-h-screen overflow-x-hidden bg-canvas text-content-primary">
+      <Sidebar
+        isOpen={isSidebarOpen}
+        isCollapsed={isSidebarCollapsed}
+        onClose={handleCloseSidebar}
+        onToggleCollapse={handleToggleCollapse}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
+        <Header
+          isSidebarOpen={isSidebarOpen}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+        />
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-6xl">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto w-full max-w-6xl">
             <Outlet />
           </div>
         </main>

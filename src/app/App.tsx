@@ -1,11 +1,16 @@
 import { RouterProvider } from 'react-router-dom'
+import { ThemeProvider } from '../context/ThemeContext'
 import { router } from './router'
 
 /**
- * Root application component providing client-side routing.
+ * Root application component providing theme state and client-side routing.
  */
 export function App() {
-  return <RouterProvider router={router} />
+  return (
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  )
 }
 
 export default App

@@ -13,9 +13,9 @@ import type { FoundationStat, NavItem, PlannedModule } from '../types/navigation
 
 export const APP_META = {
   name: 'AstroCut',
-  tagline: 'AI Video Content Platform',
-  version: '0.1.0',
-  phaseLabel: 'Phase 1 · Foundation',
+  tagline: 'AI Video Studio',
+  version: '0.2.0',
+  phaseLabel: 'Phase 2 · Design System',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -24,37 +24,37 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     label: 'Dashboard',
     to: '/',
     icon: LayoutDashboard,
-    description: 'Platform overview and Phase 1 foundation status',
+    description: 'Workspace overview and Phase 2 design system shell',
   },
   {
     id: 'settings',
     label: 'Settings',
     to: '/settings',
     icon: Settings,
-    description: 'Workspace configuration placeholder',
+    description: 'Appearance, theme preferences, and workspace info',
   },
 ]
 
 export const FOUNDATION_STATS: FoundationStat[] = [
   {
-    id: 'shell',
-    label: 'Application Shell',
-    value: 'Ready',
-    detail: 'Responsive sidebar and main content layout active',
-    icon: Layers,
+    id: 'tokens',
+    label: 'Design Tokens',
+    value: 'Active',
+    detail: 'CSS variable color system with dark-first and light theme support',
+    icon: Palette,
   },
   {
-    id: 'ui-stack',
-    label: 'UI & Routing Stack',
-    value: 'Configured',
-    detail: 'React Router, Tailwind CSS, and Lucide icons wired',
-    icon: Palette,
+    id: 'components',
+    label: 'UI Component Kit',
+    value: '11 Primitives',
+    detail: 'Buttons, inputs, selects, modals, tooltips, cards, badges & states',
+    icon: Layers,
   },
   {
     id: 'security',
     label: 'Workspace Hygiene',
-    value: 'Enforced',
-    detail: 'Zero embedded secrets, strict TypeScript & ESLint',
+    value: 'Verified',
+    detail: 'Strict TypeScript, accessible focus states, zero mock integrations',
     icon: ShieldCheck,
   },
 ]
@@ -64,28 +64,28 @@ export const PLANNED_MODULES: PlannedModule[] = [
     id: 'media-workspace',
     name: 'Media Workspace',
     description: 'Local project intake and structured video asset management.',
-    stage: 'Planned · Later Phase',
+    stage: 'Later Phase',
     icon: Film,
   },
   {
     id: 'local-ai-engine',
     name: 'Local AI & Processing',
     description: 'Modular integration boundary for future local processing services.',
-    stage: 'Planned · Later Phase',
+    stage: 'Later Phase',
     icon: Cpu,
   },
   {
     id: 'workflow-modules',
     name: 'Content Pipeline',
     description: 'Extensible architecture for clip preparation and metadata workflows.',
-    stage: 'Planned · Later Phase',
+    stage: 'Later Phase',
     icon: Boxes,
   },
   {
     id: 'channel-adapters',
     name: 'Distribution Adapters',
     description: 'Future publishing and channel connectors with zero mock accounts.',
-    stage: 'Planned · Later Phase',
+    stage: 'Later Phase',
     icon: Share2,
   },
 ]

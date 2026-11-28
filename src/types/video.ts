@@ -1,3 +1,8 @@
+import type {
+  TranscriptionStage,
+  TranscriptionStatus,
+} from './transcription.ts'
+
 export type SupportedVideoExtension = 'mp4' | 'mov' | 'webm'
 
 export type VideoTypeFilter = 'all' | SupportedVideoExtension
@@ -16,6 +21,10 @@ export interface VideoRecord {
   uploadedAt: string
   updatedAt: string
   status: 'ready'
+  transcriptionStatus?: TranscriptionStatus
+  transcriptionStage?: TranscriptionStage
+  transcriptionError?: string
+  lastTranscribedAt?: string
 }
 
 export interface VideoUploadProgress {

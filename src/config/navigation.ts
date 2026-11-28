@@ -1,4 +1,5 @@
 import {
+  Captions,
   Cpu,
   Film,
   LayoutDashboard,
@@ -10,8 +11,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.6.5',
-  phaseLabel: 'Phase 6.5 · Universal AI',
+  version: '0.7.0',
+  phaseLabel: 'Phase 7 · Transcription',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -28,6 +29,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/library',
     icon: Film,
     description: 'Upload, preview, and organize local video assets',
+  },
+  {
+    id: 'transcribe',
+    label: 'Transcription',
+    to: '/transcribe',
+    icon: Captions,
+    description: 'Extract audio and transcribe videos locally with Whisper',
   },
   {
     id: 'studio',

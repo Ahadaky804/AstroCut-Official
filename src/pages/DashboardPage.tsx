@@ -43,10 +43,15 @@ function formatDashboardDate(date: Date): string {
  */
 export function DashboardPage() {
   const navigate = useNavigate()
-  const { videos } = useVideoLibrary()
+  const { videos, transcriptsByVideoId } = useVideoLibrary()
   const { generatedCount } = useStudio()
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const formattedDate = formatDashboardDate(new Date())
+
+  const transcribedCount = useMemo(
+    () => Object.keys(transcriptsByVideoId).length,
+    [transcriptsByVideoId],
+  )
 
   const stats = useMemo(
     () =>
@@ -58,7 +63,7 @@ export function DashboardPage() {
             helperText:
               videos.length === 0
                 ? 'No uploaded videos recorded yet'
-                : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored in Video Library`,
+                : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored (${transcribedCount} transcribed)`,
           }
         }
         if (stat.id === 'ai-generated') {
@@ -73,7 +78,7 @@ export function DashboardPage() {
         }
         return stat
       }),
-    [videos.length, generatedCount],
+    [videos.length, transcribedCount, generatedCount],
   )
 
   const recentVideos = useMemo<DashboardVideoItem[]>(

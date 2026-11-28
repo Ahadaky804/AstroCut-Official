@@ -7,6 +7,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   STUDIO_LANGUAGE_OPTIONS,
   STUDIO_PLATFORM_OPTIONS,
@@ -20,7 +21,7 @@ import type {
   StudioPlatformSelection,
   StudioTone,
 } from '../../types/studio'
-import { Badge, Button, Card, Select, Tooltip } from '../ui'
+import { Badge, Button, buttonStyles, Card, Select, Tooltip } from '../ui'
 
 const TASK_OPTIONS = [
   { value: 'auto', label: 'Auto-detect from settings' },
@@ -28,7 +29,7 @@ const TASK_OPTIONS = [
   { value: 'captions_hashtags', label: 'Captions & Hashtags' },
   { value: 'translation_roman_urdu', label: 'Translation & Roman Urdu / Hinglish' },
   { value: 'transcript_cleanup', label: 'Transcript Cleanup' },
-  { value: 'video_summaries', label: 'Video Summaries (Phase 7 Video Input)' },
+  { value: 'video_summaries', label: 'Video Summaries (From Transcript)' },
 ]
 
 /**
@@ -37,11 +38,13 @@ const TASK_OPTIONS = [
 export function StudioSettingsPanel() {
   const { routing } = useAiProviders()
   const {
+    selectedVideoId,
     settings,
     updateSettings,
     selectedTaskType,
     setSelectedTaskType,
     isGenerating,
+    hasTranscript,
     canGenerate,
     generationError,
     generationResult,
@@ -49,9 +52,11 @@ export function StudioSettingsPanel() {
     generateContent,
   } = useStudio()
 
-  const disabledReason = canGenerate
-    ? 'Generate copy using your active AI provider configuration'
-    : 'Configure or connect at least one eligible AI provider in AI Provider Settings'
+  const disabledReason = !hasTranscript
+    ? 'Transcribe this video first in Video Transcription before generating AI content'
+    : canGenerate
+      ? 'Generate copy grounded in your saved transcript'
+      : 'Configure or connect at least one eligible AI provider in AI Provider Settings'
 
   return (
     <Card
@@ -107,31 +112,46 @@ export function StudioSettingsPanel() {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={canGenerate ? 'success' : 'warning'} dot>
-                {canGenerate ? 'Ready to Generate' : 'Provider Setup Required'}
+                {!hasTranscript
+                  ? 'Transcribe Video First'
+                  : canGenerate
+                    ? 'Ready to Generate'
+                    : 'Provider Setup Required'}
               </Badge>
               <span className="text-xs font-medium text-content-primary">
                 {routing?.mode === 'manual' ? 'Manual Mode' : 'Automatic Mode'}
               </span>
             </div>
             <p className="text-xs leading-relaxed text-content-secondary">
-              Generates editable copy for selected platforms only. Existing
-              edits are preserved if a request fails.
+              {hasTranscript
+                ? 'Generates editable copy grounded in the saved transcript. Existing edits are preserved if a request fails.'
+                : 'A saved transcript is required so AI generates accurate content from real speech instead of guessing.'}
             </p>
           </div>
 
-          <Tooltip content={disabledReason} side="top">
-            <span>
-              <Button
-                variant="primary"
-                isLoading={isGenerating}
-                disabled={!canGenerate}
-                leftIcon={<Wand2 className="h-4 w-4" aria-hidden="true" />}
-                onClick={() => void generateContent()}
+          <div className="flex flex-wrap items-center gap-2">
+            {!hasTranscript && selectedVideoId && (
+              <Link
+                to={`/transcribe?video=${encodeURIComponent(selectedVideoId)}`}
+                className={buttonStyles({ variant: 'outline', size: 'md' })}
               >
-                {isGenerating ? 'Generating...' : 'Generate with AI'}
-              </Button>
-            </span>
-          </Tooltip>
+                Transcribe First
+              </Link>
+            )}
+            <Tooltip content={disabledReason} side="top">
+              <span>
+                <Button
+                  variant="primary"
+                  isLoading={isGenerating}
+                  disabled={!canGenerate}
+                  leftIcon={<Wand2 className="h-4 w-4" aria-hidden="true" />}
+                  onClick={() => void generateContent()}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate with AI'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
         </div>
 
         {generationError && (

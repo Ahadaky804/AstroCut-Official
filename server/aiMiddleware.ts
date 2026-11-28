@@ -5,6 +5,7 @@ import type {
   ProviderId,
   ProviderUpsertPayload,
 } from '../src/types/ai.ts'
+import type { TranscriptTransformRequest } from '../src/types/transcription.ts'
 import { ServerConfigStore } from './configStore.ts'
 import { redactSecrets } from './envLoader.ts'
 import { ProviderRequestError } from './providers/types.ts'
@@ -12,6 +13,7 @@ import {
   generateWithRouting,
   refreshProviderModels,
   testProviderConnection,
+  transformTranscriptWithRouting,
 } from './routingEngine.ts'
 
 const MAX_BODY_BYTES = 64 * 1024
@@ -158,6 +160,20 @@ export async function handleAiApiRequest(
         return true
       }
       const result = await generateWithRouting(store, payload)
+      sendJson(res, 200, result)
+      return true
+    }
+
+    // POST /api/ai/transcript-transform
+    if (pathname === '/api/ai/transcript-transform' && req.method === 'POST') {
+      const payload = await readJsonBody<TranscriptTransformRequest>(req)
+      if (!payload.transcriptText?.trim()) {
+        sendJson(res, 400, {
+          error: 'transcriptText is required for transliteration or translation.',
+        })
+        return true
+      }
+      const result = await transformTranscriptWithRouting(store, payload)
       sendJson(res, 200, result)
       return true
     }

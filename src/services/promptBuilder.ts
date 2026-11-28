@@ -7,6 +7,7 @@ import type {
   TikTokContent,
   YouTubeContent,
 } from '../types/studio.ts'
+import type { TranscriptTransformRequest } from '../types/transcription.ts'
 import { formatDuration, formatFileSize } from '../utils/formatters.ts'
 
 const LANGUAGE_INSTRUCTIONS: Record<StudioLanguage, string> = {
@@ -48,14 +49,17 @@ export function buildStudioPrompts(request: AiGenerationRequest): {
   const durationLabel = formatDuration(request.durationSeconds)
   const sizeLabel =
     request.sizeBytes !== undefined ? formatFileSize(request.sizeBytes) : undefined
+  const transcriptText = request.transcriptText?.trim() ?? ''
 
   const systemPrompt = [
     'You are an assistant inside AstroCut, a video content workspace.',
     LANGUAGE_INSTRUCTIONS[request.settings.language],
     `Match this tone: ${request.settings.tone}.`,
     'Important grounding rules:',
-    '- You have NOT watched or transcribed the video. Only use the supplied title, metadata, and user description.',
-    '- Do NOT invent scenes, quotes, benchmarks, people, or facts not supported by the provided context.',
+    transcriptText
+      ? '- You have been given the video’s saved audio transcript, metadata, and optional user notes. You have NOT watched visual frames—never claim visual understanding or invent unseen details.'
+      : '- You have NOT watched or transcribed the video. Only use the supplied title, metadata, and user description.',
+    '- Do NOT invent scenes, quotes, benchmarks, people, or facts not supported by the provided transcript or context.',
     '- Avoid keyword stuffing and irrelevant hashtags.',
     '- Output ONLY valid JSON matching the requested platform keys, with no markdown prose outside JSON.',
   ].join('\n')
@@ -67,9 +71,14 @@ export function buildStudioPrompts(request: AiGenerationRequest): {
       : null,
     durationLabel ? `Duration: ${durationLabel}` : null,
     sizeLabel ? `File Size: ${sizeLabel}` : null,
+    transcriptText
+      ? `Saved Audio Transcript (${request.transcriptLanguage || 'detected language'}):\n"""\n${transcriptText}\n"""`
+      : null,
     request.videoContext?.trim()
-      ? `User Video Description / Context: ${request.videoContext.trim()}`
-      : 'User Video Description / Context: None provided (rely conservatively on the video title only; do not fabricate details).',
+      ? `Additional User Notes: ${request.videoContext.trim()}`
+      : transcriptText
+        ? null
+        : 'User Video Description / Context: None provided (rely conservatively on the video title only; do not fabricate details).',
   ].filter(Boolean)
 
   const userPrompt = [
@@ -217,4 +226,49 @@ export function parseGeneratedStudioResponse(
   }
 
   return { content, warnings }
+}
+
+/**
+ * Builds prompts for separate Roman Urdu transliteration or optional English translation
+ * without altering the original saved transcript.
+ */
+export function buildTranscriptTransformPrompts(
+  request: TranscriptTransformRequest,
+): { systemPrompt: string; userPrompt: string } {
+  const sourceLabel = request.sourceLanguage?.trim() || 'auto-detected language'
+
+  if (request.mode === 'roman_urdu') {
+    return {
+      systemPrompt: [
+        'You are a careful linguist in AstroCut performing Roman Urdu transliteration.',
+        'Convert the provided spoken transcript into natural, readable Roman Urdu using ONLY Latin letters (A-Z, a-z), digits, and standard punctuation.',
+        'Strict rules:',
+        '- Preserve every sentence, line break, and factual meaning of the original transcript.',
+        '- Never use Urdu/Arabic script or Devanagari script.',
+        '- Do not summarize away content, add commentary, or wrap output in JSON or markdown fences.',
+      ].join('\n'),
+      userPrompt: [
+        `Source transcript language: ${sourceLabel}`,
+        'Transliterate the following transcript into Roman Urdu:',
+        '',
+        request.transcriptText.trim(),
+      ].join('\n'),
+    }
+  }
+
+  return {
+    systemPrompt: [
+      'You are an accurate translator inside AstroCut.',
+      'Translate the provided transcript cleanly into natural English while preserving structure, line breaks, names, and factual meaning.',
+      'Strict rules:',
+      '- Do not invent details, add commentary, or wrap output in JSON or markdown fences.',
+      '- Return only the English translation text.',
+    ].join('\n'),
+    userPrompt: [
+      `Source transcript language: ${sourceLabel}`,
+      'Translate the following transcript into English:',
+      '',
+      request.transcriptText.trim(),
+    ].join('\n'),
+  }
 }

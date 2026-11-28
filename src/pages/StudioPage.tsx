@@ -7,7 +7,8 @@ import {
   PenLine,
   RotateCcw,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   StudioAiEnginePanel,
   StudioPlatformEditor,
@@ -33,9 +34,11 @@ import { cn } from '../utils/cn'
  * AI Content Studio workspace for manual platform copywriting, configuration, and live previews.
  */
 export function StudioPage() {
+  const [searchParams] = useSearchParams()
   const { videos, isLoading, error } = useVideoLibrary()
   const {
     selectedVideoId,
+    setSelectedVideoId,
     activeView,
     setActiveView,
     focusedPlatform,
@@ -44,6 +47,13 @@ export function StudioPage() {
     clearAllContent,
     content,
   } = useStudio()
+
+  const queryVideoId = searchParams.get('video')
+  useEffect(() => {
+    if (queryVideoId) {
+      setSelectedVideoId(queryVideoId)
+    }
+  }, [queryVideoId, setSelectedVideoId])
 
   const selectedVideo = videos.find((v) => v.id === selectedVideoId) ?? videos[0]
 

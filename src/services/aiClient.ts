@@ -8,6 +8,10 @@ import type {
   ProviderId,
   ProviderUpsertPayload,
 } from '../types/ai'
+import type {
+  TranscriptTransformRequest,
+  TranscriptTransformResult,
+} from '../types/transcription'
 
 async function requestJson<T>(
   url: string,
@@ -111,5 +115,17 @@ export const aiClient = {
       method: 'POST',
       body: JSON.stringify(request),
     })
+  },
+
+  transformTranscript(
+    request: TranscriptTransformRequest,
+  ): Promise<TranscriptTransformResult> {
+    return requestJson<TranscriptTransformResult>(
+      '/api/ai/transcript-transform',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      },
+    )
   },
 }

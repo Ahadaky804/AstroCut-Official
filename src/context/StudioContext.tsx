@@ -59,6 +59,7 @@ interface StudioContextValue {
   generationResult: AiGenerationResult | null
   clearGenerationFeedback: () => void
   generatedCount: number
+  hasTranscript: boolean
   canGenerate: boolean
   generateContent: () => Promise<void>
 }
@@ -69,7 +70,7 @@ const StudioContext = createContext<StudioContextValue | undefined>(undefined)
  * Holds AI Content Studio workspace state and executes generation via the server-side multi-provider router.
  */
 export function StudioProvider({ children }: { children: ReactNode }) {
-  const { videos } = useVideoLibrary()
+  const { videos, transcriptsByVideoId } = useVideoLibrary()
   const { providers, routing, refreshSnapshot } = useAiProviders()
 
   const [explicitVideoId, setExplicitVideoId] = useState<string>('')
@@ -205,8 +206,16 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     })
   }, [routing, providers, manualProviderId, manualModel])
 
+  const selectedTranscript = selectedVideoId
+    ? (transcriptsByVideoId[selectedVideoId] ?? null)
+    : null
+  const hasTranscript = Boolean(selectedTranscript?.originalText.trim())
+
   const canGenerate =
-    Boolean(selectedVideoId) && hasEligibleProvider && !isGenerating
+    Boolean(selectedVideoId) &&
+    hasTranscript &&
+    hasEligibleProvider &&
+    !isGenerating
 
   const generateContent = useCallback(async () => {
     if (isGeneratingRef.current) return
@@ -215,6 +224,14 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     if (!video) {
       setGenerationError(
         'Select a video from your Video Library before generating.',
+      )
+      return
+    }
+
+    const transcript = transcriptsByVideoId[video.id]
+    if (!transcript?.originalText.trim()) {
+      setGenerationError(
+        'Please transcribe this video first in Video Transcription so AI Content Studio can generate from actual transcript text.',
       )
       return
     }
@@ -233,6 +250,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         durationSeconds: video.durationSeconds,
         sizeBytes: video.sizeBytes,
         videoContext,
+        transcriptText: transcript.originalText,
+        transcriptLanguage:
+          transcript.detectedLanguage || transcript.languageCode,
         settings,
         platforms: activePlatforms,
         taskType: selectedTaskType === 'auto' ? undefined : selectedTaskType,
@@ -266,6 +286,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     }
   }, [
     videos,
+    transcriptsByVideoId,
     selectedVideoId,
     videoContext,
     settings,
@@ -307,6 +328,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       generationResult,
       clearGenerationFeedback,
       generatedCount,
+      hasTranscript,
       canGenerate,
       generateContent,
     }),
@@ -335,6 +357,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       generationResult,
       clearGenerationFeedback,
       generatedCount,
+      hasTranscript,
       canGenerate,
       generateContent,
     ],

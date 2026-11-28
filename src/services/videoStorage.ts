@@ -1,9 +1,15 @@
+import type {
+  TranscriptionStage,
+  TranscriptionStatus,
+  VideoTranscriptRecord,
+} from '../types/transcription'
 import type { VideoRecord } from '../types/video'
 
 const DB_NAME = 'astrocut-media-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const VIDEO_STORE = 'videos'
 const BLOB_STORE = 'videoBlobs'
+const TRANSCRIPT_STORE = 'transcripts'
 
 interface StoredBlobEntry {
   id: string
@@ -18,6 +24,18 @@ export interface VideoStorageRepository {
   getBlob(id: string): Promise<Blob | null>
   save(record: VideoRecord, blob: Blob): Promise<void>
   rename(id: string, title: string): Promise<VideoRecord>
+  updateTranscriptionState(
+    id: string,
+    patch: {
+      transcriptionStatus: TranscriptionStatus
+      transcriptionStage?: TranscriptionStage
+      transcriptionError?: string
+      lastTranscribedAt?: string
+    },
+  ): Promise<VideoRecord>
+  listTranscripts(): Promise<VideoTranscriptRecord[]>
+  getTranscript(videoId: string): Promise<VideoTranscriptRecord | null>
+  saveTranscript(record: VideoTranscriptRecord): Promise<void>
   remove(id: string): Promise<void>
 }
 
@@ -39,6 +57,9 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(BLOB_STORE)) {
         db.createObjectStore(BLOB_STORE, { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains(TRANSCRIPT_STORE)) {
+        db.createObjectStore(TRANSCRIPT_STORE, { keyPath: 'videoId' })
       }
     }
 
@@ -143,12 +164,88 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
     }
   },
 
+  async updateTranscriptionState(
+    id: string,
+    patch: {
+      transcriptionStatus: TranscriptionStatus
+      transcriptionStage?: TranscriptionStage
+      transcriptionError?: string
+      lastTranscribedAt?: string
+    },
+  ): Promise<VideoRecord> {
+    const db = await openDatabase()
+    try {
+      const tx = db.transaction(VIDEO_STORE, 'readwrite')
+      const store = tx.objectStore(VIDEO_STORE)
+      const existing = await awaitRequest<VideoRecord | undefined>(store.get(id))
+      if (!existing) {
+        throw new Error('Video record no longer exists in local storage.')
+      }
+      const updated: VideoRecord = {
+        ...existing,
+        transcriptionStatus: patch.transcriptionStatus,
+        transcriptionStage: patch.transcriptionStage,
+        transcriptionError: patch.transcriptionError,
+        lastTranscribedAt: patch.lastTranscribedAt ?? existing.lastTranscribedAt,
+        updatedAt: new Date().toISOString(),
+      }
+      store.put(updated)
+      await awaitTransaction(tx)
+      return updated
+    } finally {
+      db.close()
+    }
+  },
+
+  async listTranscripts(): Promise<VideoTranscriptRecord[]> {
+    const db = await openDatabase()
+    try {
+      const tx = db.transaction(TRANSCRIPT_STORE, 'readonly')
+      const store = tx.objectStore(TRANSCRIPT_STORE)
+      const records = await awaitRequest<VideoTranscriptRecord[]>(store.getAll())
+      await awaitTransaction(tx)
+      return records
+    } finally {
+      db.close()
+    }
+  },
+
+  async getTranscript(videoId: string): Promise<VideoTranscriptRecord | null> {
+    const db = await openDatabase()
+    try {
+      const tx = db.transaction(TRANSCRIPT_STORE, 'readonly')
+      const store = tx.objectStore(TRANSCRIPT_STORE)
+      const record = await awaitRequest<VideoTranscriptRecord | undefined>(
+        store.get(videoId),
+      )
+      await awaitTransaction(tx)
+      return record ?? null
+    } finally {
+      db.close()
+    }
+  },
+
+  async saveTranscript(record: VideoTranscriptRecord): Promise<void> {
+    const db = await openDatabase()
+    try {
+      const tx = db.transaction(TRANSCRIPT_STORE, 'readwrite')
+      tx.objectStore(TRANSCRIPT_STORE).put(record)
+      await awaitTransaction(tx)
+    } finally {
+      db.close()
+    }
+  },
+
   async remove(id: string): Promise<void> {
     const db = await openDatabase()
     try {
-      const tx = db.transaction([VIDEO_STORE, BLOB_STORE], 'readwrite')
+      const tx = db.transaction(
+        [VIDEO_STORE, BLOB_STORE, TRANSCRIPT_STORE],
+        'readwrite',
+      )
       tx.objectStore(VIDEO_STORE).delete(id)
       tx.objectStore(BLOB_STORE).delete(id)
+      tx.objectStore(TRANSCRIPT_STORE).delete(id)
       await awaitTransaction(tx)
     } finally {
       db.close()

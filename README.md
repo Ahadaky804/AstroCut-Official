@@ -14,13 +14,19 @@ AstroCut is an open-source, provider-independent AI video content management and
   - Official API adapters for **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, **OpenRouter**, **DeepSeek**, **Mistral**, **Ollama (Local)**, and **Custom OpenAI-Compatible** endpoints.
   - **Manual** and **Automatic** operating modes with configurable priority, optional fallback, task-specific model routing, and transparent usage/provider reporting.
 
-*(Not yet implemented: Whisper transcription, FFmpeg video processing, persistent Draft Management, social OAuth/publishing, and analytics belong to upcoming phases.)*
+- **Phase 7 — Local Video Transcription & Processing (`/transcribe`):**
+  - Local FFmpeg audio extraction for MP4, MOV, and WebM with automatic temp-file cleanup.
+  - Local open-source Whisper transcription (`faster-whisper` / `openai-whisper`) supporting `Tiny`, `Base`, `Small`, and `Medium` models, CPU fallback, and safe GPU checks (never assuming Quadro P2000 CUDA compatibility).
+  - Persistent IndexedDB transcript storage (`DB_VERSION = 2`), interactive timestamped segment editor with click-to-seek video playback, TXT/SRT export, separate Roman Urdu transliteration & optional English translation, and transcript-grounded AI Content Studio generation.
+
+*(Not yet implemented: persistent Draft Management, social OAuth/publishing, and analytics belong to upcoming phases.)*
 
 ## Prerequisites
 
 - **Node.js** (LTS recommended; tested with Node.js v26.13.1)
 - **npm** (bundled with Node.js)
-- Optional: **Ollama** for local, zero-API-cost inference (see [OLLAMA_SETUP.md](file:///d:/AstroCut/OLLAMA_SETUP.md))
+- **FFmpeg + Python Whisper** for local Phase 7 transcription (see [TRANSCRIPTION_SETUP.md](file:///d:/AstroCut/TRANSCRIPTION_SETUP.md))
+- Optional: **Ollama** or cloud AI keys for AI Content Studio / Roman Urdu & English transforms (see [OLLAMA_SETUP.md](file:///d:/AstroCut/OLLAMA_SETUP.md) & [AI_PROVIDERS_GUIDE.md](file:///d:/AstroCut/AI_PROVIDERS_GUIDE.md))
 
 > **Windows PowerShell note:** If PowerShell restricts `npm.ps1`, use `npm.cmd` (e.g. `npm.cmd install`, `npm.cmd run dev`).
 
@@ -57,5 +63,6 @@ AstroCut is an open-source, provider-independent AI video content management and
 
 ## Documentation
 
+- [TRANSCRIPTION_SETUP.md](file:///d:/AstroCut/TRANSCRIPTION_SETUP.md) — Windows 10 setup for FFmpeg, Whisper models, CPU/Quadro P2000 notes, and troubleshooting
 - [AI_PROVIDERS_GUIDE.md](file:///d:/AstroCut/AI_PROVIDERS_GUIDE.md) — Multi-provider architecture, API keys, modes, routing, and security
 - [OLLAMA_SETUP.md](file:///d:/AstroCut/OLLAMA_SETUP.md) — Windows setup guide for local Ollama inference

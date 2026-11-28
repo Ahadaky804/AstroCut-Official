@@ -1,5 +1,6 @@
 import {
   Calendar,
+  Captions,
   Clock,
   Film,
   HardDrive,
@@ -7,13 +8,26 @@ import {
   Play,
   Trash2,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import type { TranscriptionStatus } from '../../types/transcription'
 import type { VideoRecord } from '../../types/video'
 import {
   formatDuration,
   formatFileSize,
   formatUploadDate,
 } from '../../utils/videoFormat'
-import { Badge, Button, Card, Tooltip } from '../ui'
+import { Badge, Button, buttonStyles, Card, Tooltip, type BadgeVariant } from '../ui'
+
+const TRANSCRIPTION_BADGE_MAP: Record<
+  TranscriptionStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  not_transcribed: { label: 'Not Transcribed', variant: 'neutral' },
+  waiting: { label: 'Waiting', variant: 'warning' },
+  processing: { label: 'Processing', variant: 'secondary' },
+  completed: { label: 'Completed', variant: 'success' },
+  failed: { label: 'Failed', variant: 'danger' },
+}
 
 interface VideoCardProps {
   video: VideoRecord
@@ -34,6 +48,9 @@ export function VideoCard({
   const formattedDuration = formatDuration(video.durationSeconds)
   const formattedSize = formatFileSize(video.sizeBytes)
   const formattedDate = formatUploadDate(video.uploadedAt)
+  const txStatus: TranscriptionStatus =
+    video.transcriptionStatus ?? 'not_transcribed'
+  const txMeta = TRANSCRIPTION_BADGE_MAP[txStatus]
 
   return (
     <Card padding="none" variant="interactive" className="flex flex-col overflow-hidden">
@@ -86,10 +103,16 @@ export function VideoCard({
             >
               {video.title}
             </h3>
-            <Badge variant="success" dot>
-              Ready
+            <Badge variant={txMeta.variant} dot>
+              {txMeta.label}
             </Badge>
           </div>
+
+          {txStatus === 'failed' && video.transcriptionError && (
+            <p className="line-clamp-2 text-[11px] text-danger">
+              {video.transcriptionError}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs text-content-secondary">
             <span className="inline-flex items-center gap-1">
@@ -112,14 +135,30 @@ export function VideoCard({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-edge-subtle pt-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
-            onClick={() => onPreview(video)}
-          >
-            Preview
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
+              onClick={() => onPreview(video)}
+            >
+              Preview
+            </Button>
+
+            <Link
+              to={`/transcribe?video=${encodeURIComponent(video.id)}`}
+              className={buttonStyles({ variant: 'outline', size: 'sm' })}
+            >
+              <Captions className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>
+                {txStatus === 'completed'
+                  ? 'Transcript'
+                  : txStatus === 'failed'
+                    ? 'Retry'
+                    : 'Transcribe'}
+              </span>
+            </Link>
+          </div>
 
           <div className="flex items-center gap-1.5">
             <Tooltip content="Rename video">

@@ -9,8 +9,13 @@ import type {
 } from '../src/types/ai.ts'
 import {
   buildStudioPrompts,
+  buildTranscriptTransformPrompts,
   parseGeneratedStudioResponse,
 } from '../src/services/promptBuilder.ts'
+import type {
+  TranscriptTransformRequest,
+  TranscriptTransformResult,
+} from '../src/types/transcription.ts'
 import type { ServerConfigStore } from './configStore.ts'
 import { redactSecrets } from './envLoader.ts'
 import { getAdapterForFormat } from './providerRegistry.ts'
@@ -195,13 +200,13 @@ export async function generateWithRouting(
   const snapshot = store.getSnapshot()
   const { routing } = snapshot
 
-  if (taskReq.requiresVideoUnderstanding) {
+  if (taskReq.requiresVideoUnderstanding && !request.transcriptText?.trim()) {
     const hasVideoProvider = snapshot.providers.some(
       (p) => p.enabled && p.capabilities.supportsVideoInput,
     )
     if (!hasVideoProvider) {
       throw new ProviderRequestError(
-        'Video summarization from actual video content requires multimodal/transcription support (planned for Phase 7). Text-only AI endpoints cannot analyze video files directly.',
+        'Video summaries require a saved audio transcript or a video-capable provider. Transcribe the video first (Phase 7 transcript workflow) before requesting a summary.',
         'unsupported_capability',
       )
     }
@@ -311,27 +316,7 @@ export async function generateWithRouting(
   }
 
   // Mode B: Automatic — selects best eligible configured provider with optional fallback
-  const candidateIds: ProviderId[] = []
-  const pushUnique = (id: ProviderId) => {
-    if (!candidateIds.includes(id) && isProviderEligibleForAuto(store, id)) {
-      candidateIds.push(id)
-    }
-  }
-
-  if (taskRoute.providerId !== 'default') {
-    pushUnique(taskRoute.providerId)
-  }
-  pushUnique(routing.defaultProviderId)
-
-  const nonCooldown: ProviderId[] = []
-  const inCooldown: ProviderId[] = []
-  for (const pid of routing.providerPriority) {
-    if (!isProviderEligibleForAuto(store, pid)) continue
-    if (store.isInCooldown(pid)) inCooldown.push(pid)
-    else nonCooldown.push(pid)
-  }
-  for (const pid of nonCooldown) pushUnique(pid)
-  for (const pid of inCooldown) pushUnique(pid)
+  const candidateIds = buildAutoCandidateIds(store, taskRoute, routing)
 
   if (candidateIds.length === 0) {
     throw new ProviderRequestError(
@@ -445,6 +430,177 @@ export async function generateWithRouting(
     .join(' | ')
   throw new ProviderRequestError(
     `AI generation failed across ${attempts.length} ${attempts.length === 1 ? 'provider' : 'providers'}. ${summary}`,
+    'http_error',
+  )
+}
+
+function buildAutoCandidateIds(
+  store: ServerConfigStore,
+  taskRoute: { providerId: ProviderId | 'default'; model: string },
+  routing: ReturnType<ServerConfigStore['getSnapshot']>['routing'],
+): ProviderId[] {
+  const candidateIds: ProviderId[] = []
+  const pushUnique = (id: ProviderId) => {
+    if (!candidateIds.includes(id) && isProviderEligibleForAuto(store, id)) {
+      candidateIds.push(id)
+    }
+  }
+
+  if (taskRoute.providerId !== 'default') {
+    pushUnique(taskRoute.providerId)
+  }
+  pushUnique(routing.defaultProviderId)
+
+  const nonCooldown: ProviderId[] = []
+  const inCooldown: ProviderId[] = []
+  for (const pid of routing.providerPriority) {
+    if (!isProviderEligibleForAuto(store, pid)) continue
+    if (store.isInCooldown(pid)) inCooldown.push(pid)
+    else nonCooldown.push(pid)
+  }
+  for (const pid of nonCooldown) pushUnique(pid)
+  for (const pid of inCooldown) pushUnique(pid)
+  return candidateIds
+}
+
+/**
+ * Performs standalone Roman Urdu transliteration or optional English translation
+ * over a saved transcript without modifying the original transcript text.
+ */
+export async function transformTranscriptWithRouting(
+  store: ServerConfigStore,
+  request: TranscriptTransformRequest,
+  signal?: AbortSignal,
+): Promise<TranscriptTransformResult> {
+  if (!request.transcriptText?.trim()) {
+    throw new ProviderRequestError(
+      'Transcript text is required before requesting transliteration or translation.',
+      'not_configured',
+    )
+  }
+
+  const snapshot = store.getSnapshot()
+  const { routing } = snapshot
+  const taskRoute = routing.taskRoutes.translation_roman_urdu
+  const { systemPrompt, userPrompt } = buildTranscriptTransformPrompts(request)
+
+  const tryProvider = async (
+    pid: ProviderId,
+    explicitModel?: string,
+  ): Promise<TranscriptTransformResult> => {
+    const pub = store.getPublicProvider(pid)
+    const runtime = store.getRuntimeConfig(pid)
+    if (!pub || !runtime) {
+      throw new ProviderRequestError(
+        `Provider "${pid}" is not configured.`,
+        'not_configured',
+      )
+    }
+    if (!pub.enabled) {
+      throw new ProviderRequestError(
+        `Provider "${pub.name}" is disabled in AI Provider Settings.`,
+        'not_configured',
+      )
+    }
+
+    const preferredModel =
+      explicitModel ||
+      (taskRoute.providerId === pid && taskRoute.model
+        ? taskRoute.model
+        : routing.defaultProviderId === pid && routing.defaultModel
+          ? routing.defaultModel
+          : undefined)
+
+    let model = resolveModelForProvider(store, pid, preferredModel)
+    if (!model && pid === 'ollama') {
+      const models = await refreshProviderModels(store, 'ollama', signal)
+      model = models[0]?.name ?? ''
+    }
+    if (!model) {
+      throw new ProviderRequestError(
+        `No model is selected for ${pub.name}. Select or configure a model first.`,
+        'model_unavailable',
+      )
+    }
+
+    const adapter = getAdapterForFormat(pub.apiFormat)
+    const output = await adapter.generate(runtime, {
+      model,
+      systemPrompt,
+      userPrompt,
+      structuredJson: false,
+      signal,
+    })
+
+    const cleaned = output.rawText.trim()
+    if (!cleaned) {
+      throw new ProviderRequestError(
+        `${pub.name} returned an empty response.`,
+        'empty_output',
+      )
+    }
+
+    store.setRuntimeStatus(pid, {
+      status: 'connected',
+      statusMessage: `Connected (${output.model} ready).`,
+    })
+
+    return {
+      mode: request.mode,
+      text: cleaned,
+      providerId: pid,
+      providerName: pub.name,
+      model: output.model,
+    }
+  }
+
+  if (routing.mode === 'manual') {
+    const chosenId =
+      (request.providerId as ProviderId | undefined) ||
+      (taskRoute.providerId !== 'default'
+        ? taskRoute.providerId
+        : routing.defaultProviderId)
+
+    try {
+      return await tryProvider(chosenId, request.model)
+    } catch (err) {
+      const cleanMessage = redactSecrets(
+        err instanceof Error ? err.message : 'Transcript transform failed.',
+        store.getAllSecrets(),
+      )
+      throw new ProviderRequestError(
+        cleanMessage,
+        err instanceof ProviderRequestError ? err.code : 'unknown',
+        err instanceof ProviderRequestError ? err.status : undefined,
+      )
+    }
+  }
+
+  const candidateIds = buildAutoCandidateIds(store, taskRoute, routing)
+  if (candidateIds.length === 0) {
+    throw new ProviderRequestError(
+      'No enabled AI provider is configured for Roman Urdu transliteration or English translation. Configure an AI provider in AI Provider Settings.',
+      'not_configured',
+    )
+  }
+
+  const maxAttempts = routing.fallbackEnabled ? candidateIds.length : 1
+  const errors: string[] = []
+  for (let i = 0; i < maxAttempts; i++) {
+    const pid = candidateIds[i]
+    try {
+      return await tryProvider(pid)
+    } catch (err) {
+      const cleanMessage = redactSecrets(
+        err instanceof Error ? err.message : 'Failed.',
+        store.getAllSecrets(),
+      )
+      errors.push(`${pid}: ${cleanMessage}`)
+    }
+  }
+
+  throw new ProviderRequestError(
+    `Transcript transform failed across ${errors.length} provider(s). ${errors.join(' | ')}`,
     'http_error',
   )
 }

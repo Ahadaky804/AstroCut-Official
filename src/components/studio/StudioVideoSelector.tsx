@@ -1,14 +1,15 @@
-import { Clock, Film, HardDrive } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Captions, Clock, Film, HardDrive } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useStudio } from '../../context/StudioContext'
 import { useVideoLibrary } from '../../context/VideoLibraryContext'
 import { formatDuration, formatFileSize } from '../../utils/videoFormat'
-import { Badge, Card, Select, Textarea } from '../ui'
+import { Badge, buttonStyles, Card, Select, Textarea } from '../ui'
 
 /**
- * Allows selecting a video from Video Library, inspects its metadata, and captures optional user context.
+ * Allows selecting a video from Video Library, inspects its saved transcript context, and captures extra notes.
  */
 export function StudioVideoSelector() {
-  const { videos } = useVideoLibrary()
+  const { videos, transcriptsByVideoId } = useVideoLibrary()
   const {
     selectedVideoId,
     setSelectedVideoId,
@@ -20,13 +21,14 @@ export function StudioVideoSelector() {
   const selectedVideo = videos.find((v) => v.id === selectedVideoId) ?? videos[0]
   if (!selectedVideo) return null
 
+  const transcript = transcriptsByVideoId[selectedVideo.id]
   const formattedDuration = formatDuration(selectedVideo.durationSeconds)
   const formattedSize = formatFileSize(selectedVideo.sizeBytes)
 
   return (
     <Card
-      title="Selected Video & Context"
-      subtitle="Choose a stored video and optionally describe what happens in it."
+      title="Selected Video & Transcript Context"
+      subtitle="AI Content Studio grounds copywriting in your saved audio transcript (never claims visual video inspection)."
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-center">
@@ -40,7 +42,7 @@ export function StudioVideoSelector() {
                 value: video.id,
                 label: `${video.title} (${video.fileExtension.toUpperCase()})`,
               }))}
-              hint="Videos stay in your browser; video blobs are never sent to Ollama."
+              hint="Video blobs remain local in IndexedDB; only text transcript context is sent for generation."
             />
           </div>
 
@@ -62,9 +64,14 @@ export function StudioVideoSelector() {
                 <h3 className="truncate text-sm font-semibold text-content-primary">
                   {selectedVideo.title}
                 </h3>
-                <Badge variant="outline" className="uppercase">
-                  {selectedVideo.fileExtension}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={transcript ? 'success' : 'warning'} dot>
+                    {transcript ? 'Transcript Saved' : 'Not Transcribed'}
+                  </Badge>
+                  <Badge variant="outline" className="uppercase">
+                    {selectedVideo.fileExtension}
+                  </Badge>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-content-secondary">
@@ -82,14 +89,66 @@ export function StudioVideoSelector() {
           </div>
         </div>
 
+        {transcript ? (
+          <div className="space-y-2 rounded-xl border border-edge-subtle bg-elevated p-3.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-content-primary">
+                <Captions className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                Saved Transcript Used for Generation (
+                {transcript.detectedLanguage || transcript.languageCode} ·{' '}
+                {transcript.segments.length}{' '}
+                {transcript.segments.length === 1 ? 'segment' : 'segments'})
+              </span>
+              <Link
+                to={`/transcribe?video=${encodeURIComponent(selectedVideo.id)}`}
+                className="font-medium text-accent hover:underline"
+              >
+                Edit transcript →
+              </Link>
+            </div>
+            <p className="line-clamp-3 whitespace-pre-line leading-relaxed text-content-secondary">
+              {transcript.originalText}
+            </p>
+          </div>
+        ) : (
+          <div
+            role="status"
+            className="flex flex-col justify-between gap-3 rounded-xl border border-warning/35 bg-warning-soft p-3.5 text-xs sm:flex-row sm:items-center"
+          >
+            <div className="flex items-start gap-2.5 text-warning">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <div className="space-y-0.5">
+                <p className="font-semibold">
+                  No saved transcript for this video yet
+                </p>
+                <p className="opacity-90">
+                  Transcribe the video first so AstroCut generates titles, descriptions, captions, and hashtags from its actual spoken content.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to={`/transcribe?video=${encodeURIComponent(selectedVideo.id)}`}
+              className={buttonStyles({
+                variant: 'primary',
+                size: 'sm',
+                className: 'shrink-0',
+              })}
+            >
+              <span>Transcribe First</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        )}
+
         <Textarea
-          label="Describe Your Video (Optional Context)"
-          rows={3}
+          label="Additional Creator Notes (Optional Context)"
+          rows={2}
           disabled={isGenerating}
           value={videoContext}
           onChange={(event) => setVideoContext(event.target.value)}
-          placeholder="Example: A 3-minute tutorial showing how to color grade night footage cleanly without noise..."
-          hint="Phase 6 uses only your title, metadata, and this description (automatic transcription arrives in Phase 7)."
+          placeholder="Optional audience hints, target links, or style emphasis to combine with your saved transcript..."
+          hint="Combined with your saved transcript during generation without inventing visual claims."
         />
       </div>
     </Card>

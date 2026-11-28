@@ -158,6 +158,8 @@ export interface AiGenerationRequest {
   durationSeconds?: number
   sizeBytes?: number
   videoContext?: string
+  transcriptText?: string
+  transcriptLanguage?: string
   settings: StudioSettings
   platforms: StudioPlatform[]
   taskType?: AiTaskType

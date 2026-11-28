@@ -3,6 +3,7 @@ import http from 'node:http'
 import { extname, join, normalize, resolve } from 'node:path'
 import { handleAiApiRequest } from './aiMiddleware.ts'
 import { loadServerEnv } from './envLoader.ts'
+import { handleTranscriptionApiRequest } from './transcriptionMiddleware.ts'
 
 loadServerEnv(process.cwd())
 
@@ -21,8 +22,8 @@ const MIME_TYPES: Record<string, string> = {
 }
 
 const server = http.createServer(async (req, res) => {
-  const handled = await handleAiApiRequest(req, res)
-  if (handled) return
+  if (await handleAiApiRequest(req, res)) return
+  if (await handleTranscriptionApiRequest(req, res)) return
 
   const reqPath = (req.url || '/').split('?')[0]
   const safeRel = normalize(reqPath).replace(/^(\.\.(\/|\\|$))+/, '')

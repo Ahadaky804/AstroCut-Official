@@ -1,14 +1,17 @@
 import { RouterProvider } from 'react-router-dom'
 import { ThemeProvider } from '../context/ThemeContext'
+import { VideoLibraryProvider } from '../context/VideoLibraryContext'
 import { router } from './router'
 
 /**
- * Root application component providing theme state and client-side routing.
+ * Root application component providing theme state, video library storage, and client-side routing.
  */
 export function App() {
   return (
     <ThemeProvider>
-      <RouterProvider router={router} />
+      <VideoLibraryProvider>
+        <RouterProvider router={router} />
+      </VideoLibraryProvider>
     </ThemeProvider>
   )
 }

@@ -3,12 +3,16 @@ import { Badge, Button, Card, Tooltip } from '../ui'
 
 interface QuickActionsSectionProps {
   actions: QuickActionItem[]
+  onActionSelect?: (actionId: QuickActionItem['id']) => void
 }
 
 /**
  * Displays primary workspace quick actions with honest availability states.
  */
-export function QuickActionsSection({ actions }: QuickActionsSectionProps) {
+export function QuickActionsSection({
+  actions,
+  onActionSelect,
+}: QuickActionsSectionProps) {
   return (
     <Card
       title="Quick Actions"
@@ -45,11 +49,12 @@ export function QuickActionsSection({ actions }: QuickActionsSectionProps) {
               <Tooltip content={action.targetPhase} side="top" className="w-full">
                 <span className="w-full">
                   <Button
-                    variant="outline"
+                    variant={action.available ? 'secondary' : 'outline'}
                     size="sm"
                     fullWidth
                     disabled={!action.available}
                     leftIcon={<Icon className="h-3.5 w-3.5" aria-hidden="true" />}
+                    onClick={() => onActionSelect?.(action.id)}
                   >
                     {action.label}
                   </Button>

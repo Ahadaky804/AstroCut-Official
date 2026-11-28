@@ -1,9 +1,11 @@
-import { Calendar, Clock, Film } from 'lucide-react'
+import { ArrowRight, Calendar, Clock, Film, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import type { DashboardVideoItem, VideoStatus } from '../../types/dashboard'
-import { Badge, Card, EmptyState, type BadgeVariant } from '../ui'
+import { Badge, Button, buttonStyles, Card, EmptyState, type BadgeVariant } from '../ui'
 
 interface RecentVideosSectionProps {
   videos: DashboardVideoItem[]
+  onUploadClick?: () => void
 }
 
 const STATUS_BADGE_MAP: Record<
@@ -12,20 +14,36 @@ const STATUS_BADGE_MAP: Record<
 > = {
   draft: { label: 'Draft', variant: 'neutral' },
   processing: { label: 'Processing', variant: 'secondary' },
-  ready: { label: 'Ready', variant: 'primary' },
-  published: { label: 'Published', variant: 'success' },
+  ready: { label: 'Ready', variant: 'success' },
+  published: { label: 'Published', variant: 'primary' },
 }
 
 /**
- * Displays recent workspace videos or an empty state when no videos exist.
+ * Displays recently uploaded workspace videos or an empty state when no videos exist.
  */
-export function RecentVideosSection({ videos }: RecentVideosSectionProps) {
+export function RecentVideosSection({
+  videos,
+  onUploadClick,
+}: RecentVideosSectionProps) {
   return (
     <Card
       title="Recent Videos"
       subtitle="Latest uploaded video assets and their current status."
       headerAction={
-        <Badge variant="neutral">{videos.length} videos</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="neutral">
+            {videos.length} {videos.length === 1 ? 'video' : 'videos'}
+          </Badge>
+          {videos.length > 0 && (
+            <Link
+              to="/library"
+              className={buttonStyles({ variant: 'ghost', size: 'sm' })}
+            >
+              <span>View all</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
       }
     >
       {videos.length === 0 ? (
@@ -33,6 +51,18 @@ export function RecentVideosSection({ videos }: RecentVideosSectionProps) {
           icon={<Film className="h-5 w-5" aria-hidden="true" />}
           title="No videos yet"
           description="No videos yet. Upload your first video to get started."
+          action={
+            onUploadClick ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+                onClick={onUploadClick}
+              >
+                Upload New Video
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <ul className="space-y-3">
@@ -63,7 +93,7 @@ export function RecentVideosSection({ videos }: RecentVideosSectionProps) {
                     <h3 className="truncate text-sm font-medium text-content-primary">
                       {video.title}
                     </h3>
-                    <Badge variant={statusMeta.variant}>
+                    <Badge variant={statusMeta.variant} dot>
                       {statusMeta.label}
                     </Badge>
                   </div>

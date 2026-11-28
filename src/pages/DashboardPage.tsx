@@ -1,5 +1,6 @@
 import { ArrowRight, Calendar } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   GettingStartedSection,
   QuickActionsSection,
@@ -7,15 +8,25 @@ import {
   RecentVideosSection,
   StatCardsGrid,
 } from '../components/dashboard'
+import { UploadVideoModal } from '../components/library'
 import { Badge, buttonStyles, PageHeader } from '../components/ui'
 import {
   GETTING_STARTED_STEPS,
   INITIAL_DASHBOARD_STATS,
   QUICK_ACTIONS,
-  RECENT_ACTIVITY,
-  RECENT_VIDEOS,
 } from '../config/dashboard'
 import { APP_META } from '../config/navigation'
+import { useVideoLibrary } from '../context/VideoLibraryContext'
+import type {
+  DashboardActivityItem,
+  DashboardVideoItem,
+  QuickActionItem,
+} from '../types/dashboard'
+import {
+  formatDuration,
+  formatFileSize,
+  formatUploadDate,
+} from '../utils/videoFormat'
 
 function formatDashboardDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -27,11 +38,75 @@ function formatDashboardDate(date: Date): string {
 }
 
 /**
- * AstroCut Phase 3 Dashboard providing workspace overview, statistics, quick actions,
- * recent media/activity states, and onboarding roadmap.
+ * AstroCut Dashboard integrated with real Video Library IndexedDB state.
  */
 export function DashboardPage() {
+  const navigate = useNavigate()
+  const { videos } = useVideoLibrary()
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const formattedDate = formatDashboardDate(new Date())
+
+  const stats = useMemo(
+    () =>
+      INITIAL_DASHBOARD_STATS.map((stat) => {
+        if (stat.id !== 'total-videos') return stat
+        return {
+          ...stat,
+          value: videos.length,
+          helperText:
+            videos.length === 0
+              ? 'No uploaded videos recorded yet'
+              : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored in Video Library`,
+        }
+      }),
+    [videos.length],
+  )
+
+  const recentVideos = useMemo<DashboardVideoItem[]>(
+    () =>
+      videos.slice(0, 4).map((video) => ({
+        id: video.id,
+        title: video.title,
+        thumbnailUrl: video.thumbnailDataUrl,
+        uploadedAt: formatUploadDate(video.uploadedAt),
+        duration: formatDuration(video.durationSeconds),
+        status: video.status,
+      })),
+    [videos],
+  )
+
+  const recentActivity = useMemo<DashboardActivityItem[]>(
+    () =>
+      videos.slice(0, 5).map((video) => ({
+        id: `upload-${video.id}`,
+        type: 'video_uploaded',
+        title: 'Video uploaded',
+        detail: `${video.title} (${video.fileExtension.toUpperCase()} · ${formatFileSize(video.sizeBytes)})`,
+        timestamp: formatUploadDate(video.uploadedAt),
+      })),
+    [videos],
+  )
+
+  const onboardingSteps = useMemo(
+    () =>
+      GETTING_STARTED_STEPS.map((step) => {
+        if (step.id !== 'step-upload' || videos.length === 0) return step
+        return {
+          ...step,
+          badgeLabel: 'Completed',
+          badgeVariant: 'success' as const,
+        }
+      }),
+    [videos.length],
+  )
+
+  const handleQuickAction = (actionId: QuickActionItem['id']) => {
+    if (actionId === 'upload-video') {
+      setIsUploadModalOpen(true)
+    } else if (actionId === 'open-library') {
+      navigate('/library')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -53,26 +128,37 @@ export function DashboardPage() {
               {formattedDate}
             </Badge>
             <Link
-              to="/settings"
+              to="/library"
               className={buttonStyles({ variant: 'primary', size: 'md' })}
             >
-              <span>Workspace Settings</span>
+              <span>Video Library</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </>
         }
       />
 
-      <StatCardsGrid stats={INITIAL_DASHBOARD_STATS} />
+      <StatCardsGrid stats={stats} />
 
-      <QuickActionsSection actions={QUICK_ACTIONS} />
+      <QuickActionsSection
+        actions={QUICK_ACTIONS}
+        onActionSelect={handleQuickAction}
+      />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <RecentVideosSection videos={RECENT_VIDEOS} />
-        <RecentActivitySection activities={RECENT_ACTIVITY} />
+        <RecentVideosSection
+          videos={recentVideos}
+          onUploadClick={() => setIsUploadModalOpen(true)}
+        />
+        <RecentActivitySection activities={recentActivity} />
       </div>
 
-      <GettingStartedSection steps={GETTING_STARTED_STEPS} />
+      <GettingStartedSection steps={onboardingSteps} />
+
+      <UploadVideoModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+      />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import {
+  Film,
   LayoutDashboard,
   Settings,
 } from 'lucide-react'
@@ -7,8 +8,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.3.0',
-  phaseLabel: 'Phase 3 · Dashboard',
+  version: '0.4.0',
+  phaseLabel: 'Phase 4 · Video Library',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -18,6 +19,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/',
     icon: LayoutDashboard,
     description: 'Your AI-powered video content workspace',
+  },
+  {
+    id: 'library',
+    label: 'Video Library',
+    to: '/library',
+    icon: Film,
+    description: 'Upload, preview, and organize local video assets',
   },
   {
     id: 'settings',

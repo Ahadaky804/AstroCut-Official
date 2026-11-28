@@ -1,4 +1,6 @@
 export { CopyButton } from './CopyButton'
+export { OllamaSetupModal } from './OllamaSetupModal'
+export { StudioAiEnginePanel } from './StudioAiEnginePanel'
 export { StudioField } from './StudioField'
 export { StudioPlatformEditor } from './StudioPlatformEditor'
 export { StudioPlatformPreview } from './StudioPlatformPreview'

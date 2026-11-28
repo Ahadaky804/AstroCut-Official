@@ -16,6 +16,7 @@ import {
   QUICK_ACTIONS,
 } from '../config/dashboard'
 import { APP_META } from '../config/navigation'
+import { useStudio } from '../context/StudioContext'
 import { useVideoLibrary } from '../context/VideoLibraryContext'
 import type {
   DashboardActivityItem,
@@ -43,23 +44,36 @@ function formatDashboardDate(date: Date): string {
 export function DashboardPage() {
   const navigate = useNavigate()
   const { videos } = useVideoLibrary()
+  const { generatedCount } = useStudio()
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const formattedDate = formatDashboardDate(new Date())
 
   const stats = useMemo(
     () =>
       INITIAL_DASHBOARD_STATS.map((stat) => {
-        if (stat.id !== 'total-videos') return stat
-        return {
-          ...stat,
-          value: videos.length,
-          helperText:
-            videos.length === 0
-              ? 'No uploaded videos recorded yet'
-              : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored in Video Library`,
+        if (stat.id === 'total-videos') {
+          return {
+            ...stat,
+            value: videos.length,
+            helperText:
+              videos.length === 0
+                ? 'No uploaded videos recorded yet'
+                : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored in Video Library`,
+          }
         }
+        if (stat.id === 'ai-generated') {
+          return {
+            ...stat,
+            value: generatedCount,
+            helperText:
+              generatedCount === 0
+                ? 'No AI generations run this session'
+                : `${generatedCount} local Ollama ${generatedCount === 1 ? 'generation' : 'generations'} completed`,
+          }
+        }
+        return stat
       }),
-    [videos.length],
+    [videos.length, generatedCount],
   )
 
   const recentVideos = useMemo<DashboardVideoItem[]>(
@@ -90,14 +104,23 @@ export function DashboardPage() {
   const onboardingSteps = useMemo(
     () =>
       GETTING_STARTED_STEPS.map((step) => {
-        if (step.id !== 'step-upload' || videos.length === 0) return step
-        return {
-          ...step,
-          badgeLabel: 'Completed',
-          badgeVariant: 'success' as const,
+        if (step.id === 'step-upload' && videos.length > 0) {
+          return {
+            ...step,
+            badgeLabel: 'Completed',
+            badgeVariant: 'success' as const,
+          }
         }
+        if (step.id === 'step-generate' && generatedCount > 0) {
+          return {
+            ...step,
+            badgeLabel: 'Completed',
+            badgeVariant: 'success' as const,
+          }
+        }
+        return step
       }),
-    [videos.length],
+    [videos.length, generatedCount],
   )
 
   const handleQuickAction = (actionId: QuickActionItem['id']) => {

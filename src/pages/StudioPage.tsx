@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
+  StudioAiEnginePanel,
   StudioPlatformEditor,
   StudioPlatformPreview,
   StudioSettingsPanel,
@@ -92,6 +93,8 @@ export function StudioPage() {
           <p>{error}</p>
         </div>
       )}
+
+      <StudioAiEnginePanel />
 
       {isLoading ? (
         <LoadingState

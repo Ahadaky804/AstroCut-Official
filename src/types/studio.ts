@@ -13,6 +13,12 @@ export type StudioTone =
 
 export type StudioSubTab = 'editor' | 'preview'
 
+export type AiConnectionStatus =
+  | 'disconnected'
+  | 'checking'
+  | 'connected'
+  | 'error'
+
 export interface YouTubeContent {
   title: string
   description: string

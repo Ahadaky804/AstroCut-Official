@@ -9,8 +9,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.5.0',
-  phaseLabel: 'Phase 5 · AI Content Studio',
+  version: '0.6.0',
+  phaseLabel: 'Phase 6 · Local AI Engine',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [

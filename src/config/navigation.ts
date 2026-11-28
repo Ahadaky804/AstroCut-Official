@@ -5,6 +5,7 @@ import {
   Film,
   LayoutDashboard,
   Settings,
+  Share2,
   Wand2,
 } from 'lucide-react'
 import type { NavItem } from '../types/navigation'
@@ -12,8 +13,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.8.0',
-  phaseLabel: 'Phase 8 · Draft Management',
+  version: '0.9.0',
+  phaseLabel: 'Phase 9 · Social Accounts',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -51,6 +52,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/drafts',
     icon: FileText,
     description: 'Search, review, approve, and manage saved content drafts',
+  },
+  {
+    id: 'social',
+    label: 'Social Accounts',
+    to: '/social',
+    icon: Share2,
+    description: 'Connect YouTube, Instagram Professional, and TikTok via OAuth',
   },
   {
     id: 'providers',

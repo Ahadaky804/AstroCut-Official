@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { handleAiApiRequest } from './server/aiMiddleware.ts'
+import { handleSocialApiRequest } from './server/socialMiddleware.ts'
 import { handleTranscriptionApiRequest } from './server/transcriptionMiddleware.ts'
 
 function astrocutAiServerPlugin(): Plugin {
@@ -11,6 +12,7 @@ function astrocutAiServerPlugin(): Plugin {
   ): Promise<boolean> => {
     if (await handleAiApiRequest(req, res)) return true
     if (await handleTranscriptionApiRequest(req, res)) return true
+    if (await handleSocialApiRequest(req, res)) return true
     return false
   }
 

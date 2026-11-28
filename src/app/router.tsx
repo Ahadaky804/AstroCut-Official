@@ -6,6 +6,7 @@ import { DraftsPage } from '../pages/DraftsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProvidersPage } from '../pages/ProvidersPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { SocialAccountsPage } from '../pages/SocialAccountsPage'
 import { StudioPage } from '../pages/StudioPage'
 import { TranscribePage } from '../pages/TranscribePage'
 import { VideoLibraryPage } from '../pages/VideoLibraryPage'
@@ -38,6 +39,10 @@ export const router = createBrowserRouter([
       {
         path: 'drafts/:draftId',
         element: <DraftEditorPage />,
+      },
+      {
+        path: 'social',
+        element: <SocialAccountsPage />,
       },
       {
         path: 'providers',

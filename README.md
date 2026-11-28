@@ -26,7 +26,11 @@ AstroCut is an open-source, provider-independent AI video content management and
   - Dedicated Draft Editor supporting multi-platform field editing without overwriting other platforms, subtitles snapshot editing, platform previews, duplicate, rename, status updates, and confirmation-guarded deletion without deleting source videos or transcripts.
   - Live Dashboard draft statistics (`Total Drafts`, `Awaiting Review`, `Approved Drafts`, and `Recently Updated Drafts`).
 
-*(Not yet implemented: social OAuth/publishing, scheduling, and analytics belong to upcoming phases.)*
+- **Phase 9 — Social Media Account Integration (`/social`):**
+  - Server-side OAuth 2.0 authorization code flows (with single-use state validation, PKCE `S256`, `HttpOnly` signed session cookie, CSRF header check, and strict redirect URI validation) for **YouTube**, **Instagram Professional (Business/Creator)**, and **TikTok Login Kit v2**.
+  - **AES-256-GCM** encrypted token storage (`.astrocut/social.enc.json`), zero tokens in browser storage (`IndexedDB` / `localStorage`), token redaction, minimum identification-only scopes, and token revocation on disconnect.
+
+*(Not yet implemented: social video uploading, scheduling, and analytics belong to upcoming phases.)*
 
 ## Prerequisites
 
@@ -70,6 +74,7 @@ AstroCut is an open-source, provider-independent AI video content management and
 
 ## Documentation
 
+- [SOCIAL_OAUTH_SETUP.md](file:///d:/AstroCut/SOCIAL_OAUTH_SETUP.md) — OAuth credentials, callback URLs, Instagram Professional eligibility, and app review limits
 - [TRANSCRIPTION_SETUP.md](file:///d:/AstroCut/TRANSCRIPTION_SETUP.md) — Windows 10 setup for FFmpeg, Whisper models, CPU/Quadro P2000 notes, and troubleshooting
 - [AI_PROVIDERS_GUIDE.md](file:///d:/AstroCut/AI_PROVIDERS_GUIDE.md) — Multi-provider architecture, API keys, modes, routing, and security
 - [OLLAMA_SETUP.md](file:///d:/AstroCut/OLLAMA_SETUP.md) — Windows setup guide for local Ollama inference

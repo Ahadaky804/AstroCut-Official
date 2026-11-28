@@ -34,7 +34,7 @@ export function SettingsPage() {
           </Badge>
         }
         title="Workspace Settings"
-        description="Manage visual theme preferences and review non-sensitive Phase 2 foundation details."
+        description="Manage visual theme preferences and review non-sensitive workspace details."
       />
 
       <Card
@@ -91,7 +91,7 @@ export function SettingsPage() {
             />
             <p>
               External service endpoints, local AI models, media processing tools,
-              and social integrations are intentionally excluded in Phase 2.
+              and social integrations are intentionally excluded in this phase.
             </p>
           </div>
           <div className="flex items-start gap-3">

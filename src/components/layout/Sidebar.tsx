@@ -106,7 +106,7 @@ export function Sidebar({
             <div className="rounded-xl border border-edge-subtle bg-elevated/60 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-content-primary">
-                  Design System
+                  Workspace
                 </span>
                 <Badge variant="primary">v{APP_META.version}</Badge>
               </div>

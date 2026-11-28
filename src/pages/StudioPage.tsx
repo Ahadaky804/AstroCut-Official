@@ -1,11 +1,15 @@
 import {
   AlertCircle,
   ArrowRight,
+  CheckCircle2,
   Eye,
+  FilePlus2,
   Film,
-  Info,
+  FolderOpen,
+  Loader2,
   PenLine,
   RotateCcw,
+  Save,
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -20,18 +24,28 @@ import {
   Badge,
   Button,
   buttonStyles,
+  Card,
   EmptyState,
+  Input,
   LoadingState,
   PageHeader,
+  Select,
 } from '../components/ui'
 import { PLATFORM_LABELS } from '../config/studio'
 import { useStudio } from '../context/StudioContext'
 import { useVideoLibrary } from '../context/VideoLibraryContext'
+import type { DraftStatus } from '../types/draft'
 import type { StudioPlatform } from '../types/studio'
 import { cn } from '../utils/cn'
 
+const DRAFT_STATUS_OPTIONS: Array<{ value: DraftStatus; label: string }> = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'ready_for_review', label: 'Ready for Review' },
+  { value: 'approved', label: 'Approved' },
+]
+
 /**
- * AI Content Studio workspace for manual platform copywriting, configuration, and live previews.
+ * AI Content Studio workspace with persistent IndexedDB Draft saving, auto-save, and live previews.
  */
 export function StudioPage() {
   const [searchParams] = useSearchParams()
@@ -46,14 +60,31 @@ export function StudioPage() {
     activePlatforms,
     clearAllContent,
     content,
+    activeDraftId,
+    draftName,
+    setDraftName,
+    draftStatus,
+    setDraftStatus,
+    saveStatus,
+    saveError,
+    lastSavedAt,
+    saveDraftNow,
+    loadDraftById,
+    startNewDraft,
   } = useStudio()
 
   const queryVideoId = searchParams.get('video')
+  const queryDraftId = searchParams.get('draft')
+
   useEffect(() => {
+    if (queryDraftId) {
+      loadDraftById(queryDraftId)
+      return
+    }
     if (queryVideoId) {
       setSelectedVideoId(queryVideoId)
     }
-  }, [queryVideoId, setSelectedVideoId])
+  }, [queryDraftId, queryVideoId, loadDraftById, setSelectedVideoId])
 
   const selectedVideo = videos.find((v) => v.id === selectedVideoId) ?? videos[0]
 
@@ -78,19 +109,28 @@ export function StudioPage() {
       <PageHeader
         badge={
           <Badge variant="primary" dot>
-            Temporary Session Workspace
+            {activeDraftId ? 'Persistent Draft Synced' : 'AI Content Studio'}
           </Badge>
         }
         title="AI Content Studio"
-        description="Prepare platform-specific titles, descriptions, captions, keywords, and hashtags for your videos."
+        description="Generate, refine, auto-save, and manage platform-specific titles, captions, keywords, and hashtags."
         actions={
-          <Link
-            to="/library"
-            className={buttonStyles({ variant: 'outline', size: 'md' })}
-          >
-            <span>Video Library</span>
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/drafts"
+              className={buttonStyles({ variant: 'outline', size: 'md' })}
+            >
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              <span>Draft Library</span>
+            </Link>
+            <Link
+              to="/library"
+              className={buttonStyles({ variant: 'outline', size: 'md' })}
+            >
+              <span>Video Library</span>
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
         }
       />
 
@@ -132,28 +172,112 @@ export function StudioPage() {
 
           <StudioSettingsPanel />
 
-          <div className="flex flex-col justify-between gap-3 rounded-xl border border-edge-subtle bg-card px-4 py-3 sm:flex-row sm:items-center">
-            <div className="flex items-start gap-2.5 text-xs text-content-secondary sm:items-center">
-              <Info
-                className="mt-0.5 h-4 w-4 shrink-0 text-accent sm:mt-0"
-                aria-hidden="true"
-              />
-              <p>
-                Temporary workspace: edits stay in memory during your session,
-                but permanent Draft Management arrives in Phase 8.
-              </p>
-            </div>
+          <Card
+            title="Draft Persistence & Auto-Save"
+            subtitle="Generated content and edits save persistently to IndexedDB while preserving your video and transcript association."
+            headerAction={
+              <div className="flex flex-wrap items-center gap-2">
+                {saveStatus === 'saving' && (
+                  <Badge
+                    variant="secondary"
+                    icon={<Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                  >
+                    Saving...
+                  </Badge>
+                )}
+                {saveStatus === 'saved' && (
+                  <Badge
+                    variant="success"
+                    icon={<CheckCircle2 className="h-3 w-3" aria-hidden="true" />}
+                  >
+                    Saved
+                    {lastSavedAt
+                      ? ` · ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      : ''}
+                  </Badge>
+                )}
+                {saveStatus === 'failed' && (
+                  <Badge variant="danger" dot>
+                    Save Failed
+                  </Badge>
+                )}
+                {saveStatus === 'idle' && (
+                  <Badge variant="neutral">Not saved yet</Badge>
+                )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!hasAnyContent}
-              leftIcon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
-              onClick={clearAllContent}
-            >
-              Reset All Fields
-            </Button>
-          </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasAnyContent && !activeDraftId}
+                  leftIcon={<FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                  onClick={startNewDraft}
+                >
+                  New Draft
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!selectedVideoId || saveStatus === 'saving'}
+                  isLoading={saveStatus === 'saving'}
+                  leftIcon={<Save className="h-3.5 w-3.5" aria-hidden="true" />}
+                  onClick={() => void saveDraftNow()}
+                >
+                  {activeDraftId ? 'Save Draft' : 'Save as Draft'}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+                <div className="sm:col-span-6">
+                  <Input
+                    label="Draft Name"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    placeholder={
+                      selectedVideo
+                        ? `${selectedVideo.title} — Draft`
+                        : 'Enter a name for this draft...'
+                    }
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <Select
+                    label="Draft Status"
+                    value={draftStatus}
+                    onChange={(e) =>
+                      setDraftStatus(e.target.value as DraftStatus)
+                    }
+                    options={DRAFT_STATUS_OPTIONS}
+                  />
+                </div>
+
+                <div className="flex items-end sm:col-span-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasAnyContent}
+                    leftIcon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+                    onClick={clearAllContent}
+                  >
+                    Reset All Fields
+                  </Button>
+                </div>
+              </div>
+
+              {saveStatus === 'failed' && saveError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-xs text-danger"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <p>{saveError}</p>
+                </div>
+              )}
+            </div>
+          </Card>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div

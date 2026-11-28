@@ -1,6 +1,7 @@
 import {
   Captions,
   Cpu,
+  FileText,
   Film,
   LayoutDashboard,
   Settings,
@@ -11,8 +12,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.7.0',
-  phaseLabel: 'Phase 7 · Transcription',
+  version: '0.8.0',
+  phaseLabel: 'Phase 8 · Draft Management',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -43,6 +44,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/studio',
     icon: Wand2,
     description: 'Prepare titles, descriptions, captions, keywords, and hashtags',
+  },
+  {
+    id: 'drafts',
+    label: 'Drafts',
+    to: '/drafts',
+    icon: FileText,
+    description: 'Search, review, approve, and manage saved content drafts',
   },
   {
     id: 'providers',

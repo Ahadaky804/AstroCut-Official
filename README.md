@@ -19,7 +19,14 @@ AstroCut is an open-source, provider-independent AI video content management and
   - Local open-source Whisper transcription (`faster-whisper` / `openai-whisper`) supporting `Tiny`, `Base`, `Small`, and `Medium` models, CPU fallback, and safe GPU checks (never assuming Quadro P2000 CUDA compatibility).
   - Persistent IndexedDB transcript storage (`DB_VERSION = 2`), interactive timestamped segment editor with click-to-seek video playback, TXT/SRT export, separate Roman Urdu transliteration & optional English translation, and transcript-grounded AI Content Studio generation.
 
-*(Not yet implemented: persistent Draft Management, social OAuth/publishing, and analytics belong to upcoming phases.)*
+- **Phase 8 — Draft Management (`/drafts`, `/drafts/:draftId`):**
+  - Persistent IndexedDB storage (`DB_VERSION = 3` safe additive migration preserving existing videos and transcripts).
+  - Automatic and explicit Draft saving in AI Content Studio with duplicate-click guard, clear `Saving...`, `Saved`, and `Save Failed` feedback, and automatic browser-refresh draft restoration.
+  - Full Draft Library with search by draft/video/title, filtering by platform and workflow status (`Draft`, `Ready for Review`, `Approved`), sorting, and empty/loading/error states.
+  - Dedicated Draft Editor supporting multi-platform field editing without overwriting other platforms, subtitles snapshot editing, platform previews, duplicate, rename, status updates, and confirmation-guarded deletion without deleting source videos or transcripts.
+  - Live Dashboard draft statistics (`Total Drafts`, `Awaiting Review`, `Approved Drafts`, and `Recently Updated Drafts`).
+
+*(Not yet implemented: social OAuth/publishing, scheduling, and analytics belong to upcoming phases.)*
 
 ## Prerequisites
 

@@ -1,5 +1,6 @@
 export { GettingStartedSection } from './GettingStartedSection'
 export { QuickActionsSection } from './QuickActionsSection'
 export { RecentActivitySection } from './RecentActivitySection'
+export { RecentDraftsSection } from './RecentDraftsSection'
 export { RecentVideosSection } from './RecentVideosSection'
 export { StatCardsGrid } from './StatCardsGrid'

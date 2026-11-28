@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { BadgeVariant } from '../components/ui'
 
 export interface DashboardStatItem {
-  id: 'total-videos' | 'ai-generated' | 'drafts-saved' | 'published-videos'
+  id: 'total-videos' | 'drafts-saved' | 'drafts-review' | 'drafts-approved'
   label: string
   value: number
   helperText: string

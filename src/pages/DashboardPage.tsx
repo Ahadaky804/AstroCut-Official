@@ -5,6 +5,7 @@ import {
   GettingStartedSection,
   QuickActionsSection,
   RecentActivitySection,
+  RecentDraftsSection,
   RecentVideosSection,
   StatCardsGrid,
 } from '../components/dashboard'
@@ -16,6 +17,7 @@ import {
   QUICK_ACTIONS,
 } from '../config/dashboard'
 import { APP_META } from '../config/navigation'
+import { useDrafts } from '../context/DraftsContext'
 import { useStudio } from '../context/StudioContext'
 import { useVideoLibrary } from '../context/VideoLibraryContext'
 import type {
@@ -23,6 +25,10 @@ import type {
   DashboardVideoItem,
   QuickActionItem,
 } from '../types/dashboard'
+import {
+  computeDashboardDraftMetrics,
+  DRAFT_STATUS_LABELS,
+} from '../utils/draftFilters'
 import {
   formatDuration,
   formatFileSize,
@@ -39,11 +45,12 @@ function formatDashboardDate(date: Date): string {
 }
 
 /**
- * AstroCut Dashboard integrated with real Video Library IndexedDB state.
+ * AstroCut Dashboard integrated with real Video Library, Transcript, and Draft IndexedDB state.
  */
 export function DashboardPage() {
   const navigate = useNavigate()
   const { videos, transcriptsByVideoId } = useVideoLibrary()
+  const { drafts } = useDrafts()
   const { generatedCount } = useStudio()
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const formattedDate = formatDashboardDate(new Date())
@@ -52,6 +59,19 @@ export function DashboardPage() {
     () => Object.keys(transcriptsByVideoId).length,
     [transcriptsByVideoId],
   )
+
+  const draftMetrics = useMemo(
+    () => computeDashboardDraftMetrics(drafts),
+    [drafts],
+  )
+
+  const videoTitlesById = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const v of videos) {
+      map[v.id] = v.title
+    }
+    return map
+  }, [videos])
 
   const stats = useMemo(
     () =>
@@ -66,19 +86,39 @@ export function DashboardPage() {
                 : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} stored (${transcribedCount} transcribed)`,
           }
         }
-        if (stat.id === 'ai-generated') {
+        if (stat.id === 'drafts-saved') {
           return {
             ...stat,
-            value: generatedCount,
+            value: draftMetrics.totalDrafts,
             helperText:
-              generatedCount === 0
-                ? 'No AI generations run this session'
-                : `${generatedCount} AI ${generatedCount === 1 ? 'generation' : 'generations'} completed`,
+              draftMetrics.totalDrafts === 0
+                ? 'No drafts stored in IndexedDB yet'
+                : `${draftMetrics.totalDrafts} saved ${draftMetrics.totalDrafts === 1 ? 'draft' : 'drafts'} in Draft Library`,
+          }
+        }
+        if (stat.id === 'drafts-review') {
+          return {
+            ...stat,
+            value: draftMetrics.awaitingReview,
+            helperText:
+              draftMetrics.awaitingReview === 0
+                ? 'No drafts waiting for review'
+                : `${draftMetrics.awaitingReview} marked Ready for Review`,
+          }
+        }
+        if (stat.id === 'drafts-approved') {
+          return {
+            ...stat,
+            value: draftMetrics.approvedDrafts,
+            helperText:
+              draftMetrics.approvedDrafts === 0
+                ? 'No approved drafts recorded yet'
+                : `${draftMetrics.approvedDrafts} ${draftMetrics.approvedDrafts === 1 ? 'draft' : 'drafts'} approved`,
           }
         }
         return stat
       }),
-    [videos.length, transcribedCount, generatedCount],
+    [videos.length, transcribedCount, draftMetrics],
   )
 
   const recentVideos = useMemo<DashboardVideoItem[]>(
@@ -94,17 +134,40 @@ export function DashboardPage() {
     [videos],
   )
 
-  const recentActivity = useMemo<DashboardActivityItem[]>(
-    () =>
-      videos.slice(0, 5).map((video) => ({
-        id: `upload-${video.id}`,
-        type: 'video_uploaded',
-        title: 'Video uploaded',
-        detail: `${video.title} (${video.fileExtension.toUpperCase()} · ${formatFileSize(video.sizeBytes)})`,
-        timestamp: formatUploadDate(video.uploadedAt),
-      })),
-    [videos],
-  )
+  const recentActivity = useMemo<DashboardActivityItem[]>(() => {
+    const events: Array<{ rawDate: number; item: DashboardActivityItem }> = []
+
+    for (const video of videos.slice(0, 5)) {
+      events.push({
+        rawDate: new Date(video.uploadedAt).getTime(),
+        item: {
+          id: `upload-${video.id}`,
+          type: 'video_uploaded',
+          title: 'Video uploaded',
+          detail: `${video.title} (${video.fileExtension.toUpperCase()} · ${formatFileSize(video.sizeBytes)})`,
+          timestamp: formatUploadDate(video.uploadedAt),
+        },
+      })
+    }
+
+    for (const draft of drafts.slice(0, 5)) {
+      events.push({
+        rawDate: new Date(draft.updatedAt).getTime(),
+        item: {
+          id: `draft-${draft.id}`,
+          type: 'draft_saved',
+          title: 'Draft saved',
+          detail: `${draft.name} (${DRAFT_STATUS_LABELS[draft.status]})`,
+          timestamp: formatUploadDate(draft.updatedAt),
+        },
+      })
+    }
+
+    return events
+      .sort((a, b) => b.rawDate - a.rawDate)
+      .slice(0, 6)
+      .map((entry) => entry.item)
+  }, [videos, drafts])
 
   const onboardingSteps = useMemo(
     () =>
@@ -116,7 +179,17 @@ export function DashboardPage() {
             badgeVariant: 'success' as const,
           }
         }
-        if (step.id === 'step-generate' && generatedCount > 0) {
+        if (
+          step.id === 'step-generate' &&
+          (generatedCount > 0 || drafts.length > 0)
+        ) {
+          return {
+            ...step,
+            badgeLabel: 'Completed',
+            badgeVariant: 'success' as const,
+          }
+        }
+        if (step.id === 'step-draft' && drafts.length > 0) {
           return {
             ...step,
             badgeLabel: 'Completed',
@@ -125,7 +198,7 @@ export function DashboardPage() {
         }
         return step
       }),
-    [videos.length, generatedCount],
+    [videos.length, generatedCount, drafts.length],
   )
 
   const handleQuickAction = (actionId: QuickActionItem['id']) => {
@@ -135,6 +208,8 @@ export function DashboardPage() {
       navigate('/library')
     } else if (actionId === 'create-ai-content') {
       navigate('/studio')
+    } else if (actionId === 'view-drafts') {
+      navigate('/drafts')
     }
   }
 
@@ -158,6 +233,12 @@ export function DashboardPage() {
               {formattedDate}
             </Badge>
             <Link
+              to="/drafts"
+              className={buttonStyles({ variant: 'outline', size: 'md' })}
+            >
+              <span>Draft Library</span>
+            </Link>
+            <Link
               to="/library"
               className={buttonStyles({ variant: 'primary', size: 'md' })}
             >
@@ -173,6 +254,11 @@ export function DashboardPage() {
       <QuickActionsSection
         actions={QUICK_ACTIONS}
         onActionSelect={handleQuickAction}
+      />
+
+      <RecentDraftsSection
+        drafts={draftMetrics.recentDrafts}
+        videoTitlesById={videoTitlesById}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

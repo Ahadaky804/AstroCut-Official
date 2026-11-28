@@ -1,6 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import { DashboardPage } from '../pages/DashboardPage'
+import { DraftEditorPage } from '../pages/DraftEditorPage'
+import { DraftsPage } from '../pages/DraftsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProvidersPage } from '../pages/ProvidersPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -28,6 +30,14 @@ export const router = createBrowserRouter([
       {
         path: 'studio',
         element: <StudioPage />,
+      },
+      {
+        path: 'drafts',
+        element: <DraftsPage />,
+      },
+      {
+        path: 'drafts/:draftId',
+        element: <DraftEditorPage />,
       },
       {
         path: 'providers',

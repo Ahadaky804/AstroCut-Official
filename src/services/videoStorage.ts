@@ -4,12 +4,14 @@ import type {
   VideoTranscriptRecord,
 } from '../types/transcription'
 import type { VideoRecord } from '../types/video'
-
-const DB_NAME = 'astrocut-media-db'
-const DB_VERSION = 2
-const VIDEO_STORE = 'videos'
-const BLOB_STORE = 'videoBlobs'
-const TRANSCRIPT_STORE = 'transcripts'
+import {
+  awaitIdbRequest,
+  awaitIdbTransaction,
+  BLOB_STORE,
+  openAstroCutDatabase,
+  TRANSCRIPT_STORE,
+  VIDEO_STORE,
+} from './indexedDb'
 
 interface StoredBlobEntry {
   id: string
@@ -39,67 +41,17 @@ export interface VideoStorageRepository {
   remove(id: string): Promise<void>
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  if (typeof indexedDB === 'undefined') {
-    return Promise.reject(
-      new Error('IndexedDB is not supported in this browser.'),
-    )
-  }
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(VIDEO_STORE)) {
-        const store = db.createObjectStore(VIDEO_STORE, { keyPath: 'id' })
-        store.createIndex('uploadedAt', 'uploadedAt', { unique: false })
-      }
-      if (!db.objectStoreNames.contains(BLOB_STORE)) {
-        db.createObjectStore(BLOB_STORE, { keyPath: 'id' })
-      }
-      if (!db.objectStoreNames.contains(TRANSCRIPT_STORE)) {
-        db.createObjectStore(TRANSCRIPT_STORE, { keyPath: 'videoId' })
-      }
-    }
-
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () =>
-      reject(
-        request.error ?? new Error('Unable to open local AstroCut database.'),
-      )
-  })
-}
-
-function awaitRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () =>
-      reject(request.error ?? new Error('IndexedDB request failed.'))
-  })
-}
-
-function awaitTransaction(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onabort = () =>
-      reject(tx.error ?? new Error('Storage transaction was aborted.'))
-    tx.onerror = () =>
-      reject(tx.error ?? new Error('Storage transaction failed.'))
-  })
-}
-
 /**
- * IndexedDB implementation storing video metadata and binary blobs locally.
+ * IndexedDB implementation storing video metadata, binary blobs, and transcripts locally.
  */
 export const indexedDbVideoStorage: VideoStorageRepository = {
   async list(): Promise<VideoRecord[]> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(VIDEO_STORE, 'readonly')
       const store = tx.objectStore(VIDEO_STORE)
-      const records = await awaitRequest<VideoRecord[]>(store.getAll())
-      await awaitTransaction(tx)
+      const records = await awaitIdbRequest<VideoRecord[]>(store.getAll())
+      await awaitIdbTransaction(tx)
       return records.sort(
         (a, b) =>
           new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
@@ -110,12 +62,14 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
   },
 
   async getBlob(id: string): Promise<Blob | null> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(BLOB_STORE, 'readonly')
       const store = tx.objectStore(BLOB_STORE)
-      const entry = await awaitRequest<StoredBlobEntry | undefined>(store.get(id))
-      await awaitTransaction(tx)
+      const entry = await awaitIdbRequest<StoredBlobEntry | undefined>(
+        store.get(id),
+      )
+      await awaitIdbTransaction(tx)
       return entry?.blob ?? null
     } finally {
       db.close()
@@ -123,12 +77,15 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
   },
 
   async save(record: VideoRecord, blob: Blob): Promise<void> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction([VIDEO_STORE, BLOB_STORE], 'readwrite')
       tx.objectStore(VIDEO_STORE).put(record)
-      tx.objectStore(BLOB_STORE).put({ id: record.id, blob } satisfies StoredBlobEntry)
-      await awaitTransaction(tx)
+      tx.objectStore(BLOB_STORE).put({
+        id: record.id,
+        blob,
+      } satisfies StoredBlobEntry)
+      await awaitIdbTransaction(tx)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'QuotaExceededError') {
         throw new Error(
@@ -143,11 +100,13 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
   },
 
   async rename(id: string, title: string): Promise<VideoRecord> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(VIDEO_STORE, 'readwrite')
       const store = tx.objectStore(VIDEO_STORE)
-      const existing = await awaitRequest<VideoRecord | undefined>(store.get(id))
+      const existing = await awaitIdbRequest<VideoRecord | undefined>(
+        store.get(id),
+      )
       if (!existing) {
         throw new Error('Video record no longer exists in local storage.')
       }
@@ -157,7 +116,7 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
         updatedAt: new Date().toISOString(),
       }
       store.put(updated)
-      await awaitTransaction(tx)
+      await awaitIdbTransaction(tx)
       return updated
     } finally {
       db.close()
@@ -173,11 +132,13 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
       lastTranscribedAt?: string
     },
   ): Promise<VideoRecord> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(VIDEO_STORE, 'readwrite')
       const store = tx.objectStore(VIDEO_STORE)
-      const existing = await awaitRequest<VideoRecord | undefined>(store.get(id))
+      const existing = await awaitIdbRequest<VideoRecord | undefined>(
+        store.get(id),
+      )
       if (!existing) {
         throw new Error('Video record no longer exists in local storage.')
       }
@@ -190,7 +151,7 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
         updatedAt: new Date().toISOString(),
       }
       store.put(updated)
-      await awaitTransaction(tx)
+      await awaitIdbTransaction(tx)
       return updated
     } finally {
       db.close()
@@ -198,27 +159,31 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
   },
 
   async listTranscripts(): Promise<VideoTranscriptRecord[]> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(TRANSCRIPT_STORE, 'readonly')
       const store = tx.objectStore(TRANSCRIPT_STORE)
-      const records = await awaitRequest<VideoTranscriptRecord[]>(store.getAll())
-      await awaitTransaction(tx)
+      const records = await awaitIdbRequest<VideoTranscriptRecord[]>(
+        store.getAll(),
+      )
+      await awaitIdbTransaction(tx)
       return records
     } finally {
       db.close()
     }
   },
 
-  async getTranscript(videoId: string): Promise<VideoTranscriptRecord | null> {
-    const db = await openDatabase()
+  async getTranscript(
+    videoId: string,
+  ): Promise<VideoTranscriptRecord | null> {
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(TRANSCRIPT_STORE, 'readonly')
       const store = tx.objectStore(TRANSCRIPT_STORE)
-      const record = await awaitRequest<VideoTranscriptRecord | undefined>(
+      const record = await awaitIdbRequest<VideoTranscriptRecord | undefined>(
         store.get(videoId),
       )
-      await awaitTransaction(tx)
+      await awaitIdbTransaction(tx)
       return record ?? null
     } finally {
       db.close()
@@ -226,18 +191,18 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
   },
 
   async saveTranscript(record: VideoTranscriptRecord): Promise<void> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(TRANSCRIPT_STORE, 'readwrite')
       tx.objectStore(TRANSCRIPT_STORE).put(record)
-      await awaitTransaction(tx)
+      await awaitIdbTransaction(tx)
     } finally {
       db.close()
     }
   },
 
   async remove(id: string): Promise<void> {
-    const db = await openDatabase()
+    const db = await openAstroCutDatabase()
     try {
       const tx = db.transaction(
         [VIDEO_STORE, BLOB_STORE, TRANSCRIPT_STORE],
@@ -246,7 +211,7 @@ export const indexedDbVideoStorage: VideoStorageRepository = {
       tx.objectStore(VIDEO_STORE).delete(id)
       tx.objectStore(BLOB_STORE).delete(id)
       tx.objectStore(TRANSCRIPT_STORE).delete(id)
-      await awaitTransaction(tx)
+      await awaitIdbTransaction(tx)
     } finally {
       db.close()
     }

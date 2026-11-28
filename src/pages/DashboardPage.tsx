@@ -68,7 +68,7 @@ export function DashboardPage() {
             helperText:
               generatedCount === 0
                 ? 'No AI generations run this session'
-                : `${generatedCount} local Ollama ${generatedCount === 1 ? 'generation' : 'generations'} completed`,
+                : `${generatedCount} AI ${generatedCount === 1 ? 'generation' : 'generations'} completed`,
           }
         }
         return stat

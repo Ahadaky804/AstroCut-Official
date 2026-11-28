@@ -1,4 +1,5 @@
 import {
+  Cpu,
   Film,
   LayoutDashboard,
   Settings,
@@ -9,8 +10,8 @@ import type { NavItem } from '../types/navigation'
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.6.0',
-  phaseLabel: 'Phase 6 · Local AI Engine',
+  version: '0.6.5',
+  phaseLabel: 'Phase 6.5 · Universal AI',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -34,6 +35,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/studio',
     icon: Wand2,
     description: 'Prepare titles, descriptions, captions, keywords, and hashtags',
+  },
+  {
+    id: 'providers',
+    label: 'AI Providers',
+    to: '/providers',
+    icon: Cpu,
+    description: 'Configure Gemini, OpenAI, Claude, Groq, Ollama, and custom APIs',
   },
   {
     id: 'settings',

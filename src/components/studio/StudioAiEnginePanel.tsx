@@ -1,90 +1,93 @@
 import {
+  ArrowRight,
   BookOpen,
+  Cloud,
   Cpu,
   PlugZap,
   RefreshCw,
-  ShieldCheck,
 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAiProviders } from '../../context/AiProvidersContext'
 import { useStudio } from '../../context/StudioContext'
-import { DEFAULT_OLLAMA_BASE_URL } from '../../services/ollamaProvider'
-import { formatFileSize } from '../../utils/videoFormat'
-import { Badge, Button, Card, Input, Select, type BadgeVariant } from '../ui'
+import type { ProviderId } from '../../types/ai'
+import { Badge, buttonStyles, Button, Card, Select, type BadgeVariant } from '../ui'
 import { OllamaSetupModal } from './OllamaSetupModal'
 
-const STATUS_BADGE: Record<
-  'disconnected' | 'checking' | 'connected' | 'error',
-  { label: string; variant: BadgeVariant }
-> = {
+const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   connected: { label: 'Connected', variant: 'success' },
-  disconnected: { label: 'Disconnected', variant: 'danger' },
-  checking: { label: 'Checking...', variant: 'secondary' },
+  configured: { label: 'Configured', variant: 'primary' },
+  disconnected: { label: 'Disconnected', variant: 'warning' },
+  not_configured: { label: 'Not Configured', variant: 'neutral' },
   error: { label: 'Error', variant: 'danger' },
 }
 
 /**
- * Local AI Engine configuration panel for Ollama connection testing and model discovery.
+ * Displays active Universal AI Provider routing mode, provider/model selection, and quick actions in Studio.
  */
 export function StudioAiEnginePanel() {
   const {
-    providerName,
-    ollamaBaseUrl,
-    setOllamaBaseUrl,
-    connectionStatus,
-    connectionMessage,
-    installedModels,
-    selectedModel,
-    setSelectedModel,
-    isRefreshingModels,
-    isGenerating,
+    providers,
+    routing,
+    testingProviderId,
+    refreshingProviderId,
     testConnection,
     refreshModels,
+  } = useAiProviders()
+  const {
+    manualProviderId,
+    setManualProviderId,
+    manualModel,
+    setManualModel,
+    isGenerating,
   } = useStudio()
 
-  const [endpointDraft, setEndpointDraft] = useState(ollamaBaseUrl)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
 
-  const statusMeta = STATUS_BADGE[connectionStatus]
+  const activeProvider =
+    providers.find((p) => p.id === manualProviderId) ??
+    providers.find((p) => p.id === routing?.defaultProviderId) ??
+    providers[0]
 
-  const modelOptions =
-    installedModels.length > 0
-      ? installedModels.map((model) => {
-          const details = [
-            model.parameterSize,
-            model.sizeBytes ? formatFileSize(model.sizeBytes) : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-          return {
-            value: model.name,
-            label: details ? `${model.name} (${details})` : model.name,
-          }
-        })
-      : [
-          {
-            value: '',
-            label:
-              connectionStatus === 'connected'
-                ? 'No models installed in Ollama'
-                : 'Connect to Ollama to load installed models',
-            disabled: true,
-          },
-        ]
+  const isManual = routing?.mode === 'manual'
+  const statusMeta = activeProvider
+    ? STATUS_BADGE[activeProvider.status] ?? STATUS_BADGE.not_configured
+    : STATUS_BADGE.not_configured
+  const isLocal = activeProvider?.capabilities.kind === 'local'
 
-  const handleApplyEndpoint = (event: FormEvent) => {
-    event.preventDefault()
-    setOllamaBaseUrl(endpointDraft)
-  }
+  const modelOptions = (() => {
+    const names = new Set<string>()
+    for (const m of activeProvider?.discoveredModels ?? []) {
+      names.add(m.name)
+    }
+    if (activeProvider?.defaultModel) names.add(activeProvider.defaultModel)
+    if (manualModel) names.add(manualModel)
+    const list = Array.from(names)
+    if (list.length === 0) {
+      return [
+        {
+          value: '',
+          label: 'No models loaded (test connection or configure)',
+          disabled: true,
+        },
+      ]
+    }
+    return list.map((m) => ({ value: m, label: m }))
+  })()
 
   return (
     <>
       <Card
         title="AI Engine"
-        subtitle="Connect AstroCut to your local Ollama service for zero-cost, private copy generation."
+        subtitle={
+          isManual
+            ? 'Manual Mode: uses your exact selected provider and model.'
+            : 'Automatic Mode: routes across eligible providers with optional fallback.'
+        }
         headerAction={
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusMeta.variant} dot>
-              {statusMeta.label}
+            <Badge variant="primary">
+              {isManual ? 'Manual Mode' : 'Automatic Mode'}
             </Badge>
             <Button
               variant="ghost"
@@ -92,124 +95,134 @@ export function StudioAiEnginePanel() {
               leftIcon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" />}
               onClick={() => setIsSetupOpen(true)}
             >
-              Setup Guide
+              Ollama Guide
             </Button>
+            <Link
+              to="/providers"
+              className={buttonStyles({ variant: 'outline', size: 'sm' })}
+            >
+              <span>AI Provider Settings</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
           </div>
         }
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-end">
             <div className="rounded-xl border border-edge-subtle bg-elevated p-3.5 lg:col-span-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent-soft text-accent">
-                  <Cpu className="h-4 w-4" aria-hidden="true" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent-soft text-accent">
+                    {isLocal ? (
+                      <Cpu className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Cloud className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-content-secondary">
+                      {isManual ? 'Selected Provider' : 'Default Provider'}
+                    </p>
+                    <p className="truncate text-sm font-semibold text-content-primary">
+                      {activeProvider?.name ?? 'Loading...'}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-content-secondary">Provider</p>
-                  <p className="truncate text-sm font-semibold text-content-primary">
-                    {providerName}
-                  </p>
-                </div>
+                <Badge variant={statusMeta.variant} dot>
+                  {statusMeta.label}
+                </Badge>
               </div>
-              <p className="mt-2 truncate text-xs text-content-muted">
-                Selected model:{' '}
-                <span className="font-medium text-content-primary">
-                  {selectedModel || 'None selected'}
-                </span>
+              <p className="mt-2 text-xs text-content-muted">
+                {isLocal ? 'Local · Zero API Cost' : 'Cloud API'} ·{' '}
+                {routing?.fallbackEnabled
+                  ? 'Fallback enabled'
+                  : 'Fallback disabled'}
               </p>
             </div>
 
-            <div className="lg:col-span-5">
-              <Select
-                label="Installed Model"
-                value={selectedModel}
-                disabled={installedModels.length === 0 || isGenerating}
-                onChange={(event) => setSelectedModel(event.target.value)}
-                options={modelOptions}
-                hint="Discovered dynamically from your local Ollama installation."
-              />
-            </div>
+            {isManual ? (
+              <>
+                <div className="lg:col-span-3">
+                  <Select
+                    label="Provider (Manual)"
+                    value={manualProviderId}
+                    disabled={isGenerating}
+                    onChange={(e) =>
+                      setManualProviderId(e.target.value as ProviderId)
+                    }
+                    options={providers
+                      .filter((p) => p.enabled)
+                      .map((p) => ({
+                        value: p.id,
+                        label: `${p.name} (${p.capabilities.kind === 'local' ? 'Local' : 'Cloud'})`,
+                      }))}
+                  />
+                </div>
 
-            <div className="flex flex-wrap gap-2 lg:col-span-3 lg:justify-end">
-              <Button
-                variant="outline"
-                size="md"
-                isLoading={isRefreshingModels}
-                disabled={isGenerating}
-                leftIcon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
-                onClick={() => void refreshModels()}
-              >
-                Refresh Models
-              </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                isLoading={connectionStatus === 'checking'}
-                disabled={isGenerating}
-                leftIcon={<PlugZap className="h-4 w-4" aria-hidden="true" />}
-                onClick={() => void testConnection()}
-              >
-                Test Connection
-              </Button>
-            </div>
-          </div>
+                <div className="lg:col-span-3">
+                  <Select
+                    label="Model (Manual)"
+                    value={manualModel}
+                    disabled={isGenerating || modelOptions[0]?.value === ''}
+                    onChange={(e) => setManualModel(e.target.value)}
+                    options={modelOptions}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="rounded-xl border border-edge-subtle bg-elevated/70 p-3.5 text-xs text-content-secondary lg:col-span-6">
+                <p className="font-medium text-content-primary">
+                  Automatic Provider Routing Active
+                </p>
+                <p className="mt-1 leading-relaxed">
+                  Priority order:{' '}
+                  {routing?.providerPriority
+                    .map((id) => providers.find((p) => p.id === id))
+                    .filter(
+                      (p) =>
+                        p &&
+                        p.enabled &&
+                        (!p.capabilities.requiresApiKey || p.hasApiKey),
+                    )
+                    .map((p) => p!.name)
+                    .join(' → ') || 'No configured providers yet (configure in AI Provider Settings)'}
+                </p>
+              </div>
+            )}
 
-          <form
-            onSubmit={handleApplyEndpoint}
-            className="flex flex-col gap-2.5 rounded-xl border border-edge-subtle bg-elevated/60 p-3.5 sm:flex-row sm:items-end"
-          >
-            <Input
-              label="Local Ollama URL"
-              value={endpointDraft}
-              onChange={(event) => setEndpointDraft(event.target.value)}
-              placeholder={DEFAULT_OLLAMA_BASE_URL}
-              containerClassName="flex-1"
-              disabled={isGenerating}
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                type="submit"
-                variant="outline"
-                size="md"
-                disabled={isGenerating || endpointDraft.trim() === ollamaBaseUrl}
-              >
-                Apply URL
-              </Button>
-              {ollamaBaseUrl !== DEFAULT_OLLAMA_BASE_URL && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="md"
-                  disabled={isGenerating}
-                  onClick={() => {
-                    setEndpointDraft(DEFAULT_OLLAMA_BASE_URL)
-                    setOllamaBaseUrl(DEFAULT_OLLAMA_BASE_URL)
-                  }}
-                >
-                  Reset
-                </Button>
+            <div className="flex flex-wrap gap-2 lg:col-span-2 lg:justify-end">
+              {activeProvider && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    isLoading={refreshingProviderId === activeProvider.id}
+                    disabled={isGenerating}
+                    leftIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+                    onClick={() => void refreshModels(activeProvider.id)}
+                  >
+                    Models
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    isLoading={testingProviderId === activeProvider.id}
+                    disabled={isGenerating}
+                    leftIcon={<PlugZap className="h-3.5 w-3.5" aria-hidden="true" />}
+                    onClick={() => void testConnection(activeProvider.id)}
+                  >
+                    Test
+                  </Button>
+                </>
               )}
             </div>
-          </form>
-
-          <div
-            role={connectionStatus === 'disconnected' ? 'status' : undefined}
-            className="flex flex-col justify-between gap-2 rounded-xl border border-edge-subtle bg-elevated/45 px-4 py-3 text-xs sm:flex-row sm:items-center"
-          >
-            <p
-              className={
-                connectionStatus === 'connected'
-                  ? 'text-success font-medium'
-                  : 'text-content-secondary'
-              }
-            >
-              {connectionMessage}
-            </p>
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] text-content-muted">
-              <ShieldCheck className="h-3.5 w-3.5 text-success" aria-hidden="true" />
-              <span>Local only · CPU fallback supported</span>
-            </span>
           </div>
+
+          {activeProvider && (
+            <p className="text-xs text-content-secondary">
+              {activeProvider.statusMessage}
+            </p>
+          )}
         </div>
       </Card>
 

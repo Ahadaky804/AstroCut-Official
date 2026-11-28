@@ -1,3 +1,4 @@
+import type { AiGenerationRequest } from '../types/ai.ts'
 import type {
   InstagramContent,
   StudioDraftContent,
@@ -5,9 +6,8 @@ import type {
   StudioPlatform,
   TikTokContent,
   YouTubeContent,
-} from '../types/studio'
-import { formatDuration, formatFileSize } from '../utils/videoFormat'
-import type { AiGenerationRequest } from './aiProvider'
+} from '../types/studio.ts'
+import { formatDuration, formatFileSize } from '../utils/formatters.ts'
 
 const LANGUAGE_INSTRUCTIONS: Record<StudioLanguage, string> = {
   english:

@@ -29,6 +29,7 @@ lerna-debug.log*
 
 # Local development & temporary files
 *.local
+.astrocut/
 tmp/
 temp/
 

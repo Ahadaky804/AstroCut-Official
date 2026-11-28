@@ -2,14 +2,15 @@ import {
   Film,
   LayoutDashboard,
   Settings,
+  Wand2,
 } from 'lucide-react'
 import type { NavItem } from '../types/navigation'
 
 export const APP_META = {
   name: 'AstroCut',
   tagline: 'AI Video Studio',
-  version: '0.4.0',
-  phaseLabel: 'Phase 4 · Video Library',
+  version: '0.5.0',
+  phaseLabel: 'Phase 5 · AI Content Studio',
 } as const
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -26,6 +27,13 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
     to: '/library',
     icon: Film,
     description: 'Upload, preview, and organize local video assets',
+  },
+  {
+    id: 'studio',
+    label: 'AI Content Studio',
+    to: '/studio',
+    icon: Wand2,
+    description: 'Prepare titles, descriptions, captions, keywords, and hashtags',
   },
   {
     id: 'settings',

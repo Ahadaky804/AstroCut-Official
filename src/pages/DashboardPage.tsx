@@ -105,6 +105,8 @@ export function DashboardPage() {
       setIsUploadModalOpen(true)
     } else if (actionId === 'open-library') {
       navigate('/library')
+    } else if (actionId === 'create-ai-content') {
+      navigate('/studio')
     }
   }
 

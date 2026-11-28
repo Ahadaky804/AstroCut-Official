@@ -3,6 +3,7 @@ import { AppShell } from '../components/layout/AppShell'
 import { DashboardPage } from '../pages/DashboardPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { StudioPage } from '../pages/StudioPage'
 import { VideoLibraryPage } from '../pages/VideoLibraryPage'
 
 export const router = createBrowserRouter([
@@ -17,6 +18,10 @@ export const router = createBrowserRouter([
       {
         path: 'library',
         element: <VideoLibraryPage />,
+      },
+      {
+        path: 'studio',
+        element: <StudioPage />,
       },
       {
         path: 'settings',

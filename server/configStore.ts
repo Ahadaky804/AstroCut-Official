@@ -29,6 +29,9 @@ interface PersistedProviderEntry {
   baseUrl: string
   apiKey?: string
   defaultModel: string
+  discoveredModels?: AiModelInfo[]
+  lastCheckedAt?: string
+  discoveryFailed?: boolean
 }
 
 interface PersistedConfigFile {
@@ -40,6 +43,7 @@ interface ProviderRuntimeStatus {
   status: ProviderConnectionStatus
   statusMessage: string
   discoveredModels: AiModelInfo[]
+  discoveryFailed?: boolean
   lastCheckedAt?: string
   cooldownUntil?: number
 }
@@ -211,6 +215,18 @@ export class ServerConfigStore {
           : `No API key configured. Set ${builtIn.envVarName} or add a key below.`
         : 'Local provider ready to test. Click Test Connection to verify Ollama is running.'
 
+      const persistedModels = entry?.discoveredModels ?? []
+      const discoveredModels = runtime?.discoveredModels ?? persistedModels
+      const lastCheckedAt = runtime?.lastCheckedAt ?? entry?.lastCheckedAt
+      const discoveryFailed =
+        runtime?.discoveryFailed ?? entry?.discoveryFailed ?? false
+
+      const persistedFallbackMessage = discoveryFailed
+        ? 'Previous model discovery failed. Click Test Connection or Models to retry.'
+        : persistedModels.length > 0
+          ? `${fallbackMessage} (${persistedModels.length} saved model${persistedModels.length === 1 ? '' : 's'} from last check.)`
+          : fallbackMessage
+
       return {
         id: builtIn.id,
         name: builtIn.name,
@@ -226,9 +242,10 @@ export class ServerConfigStore {
         envVarName: builtIn.envVarName,
         capabilities: builtIn.capabilities,
         status: runtime?.status ?? fallbackStatus,
-        statusMessage: runtime?.statusMessage ?? fallbackMessage,
-        discoveredModels: runtime?.discoveredModels ?? [],
-        lastCheckedAt: runtime?.lastCheckedAt,
+        statusMessage: runtime?.statusMessage ?? persistedFallbackMessage,
+        discoveredModels,
+        discoveryFailed,
+        lastCheckedAt,
         implementationStatus: 'implemented',
       }
     }
@@ -262,9 +279,14 @@ export class ServerConfigStore {
       status: runtime?.status ?? (hasKey || isLocal ? 'configured' : 'not_configured'),
       statusMessage:
         runtime?.statusMessage ??
-        'Custom OpenAI-compatible endpoint saved. Click Test Connection to verify.',
-      discoveredModels: runtime?.discoveredModels ?? [],
-      lastCheckedAt: runtime?.lastCheckedAt,
+        (entry?.discoveryFailed
+          ? 'Previous model discovery failed. Click Test Connection or Models to retry.'
+          : entry?.discoveredModels?.length
+            ? `Custom OpenAI-compatible endpoint saved (${entry.discoveredModels.length} saved model${entry.discoveredModels.length === 1 ? '' : 's'} from last check).`
+            : 'Custom OpenAI-compatible endpoint saved. Click Test Connection to verify.'),
+      discoveredModels: runtime?.discoveredModels ?? entry?.discoveredModels ?? [],
+      discoveryFailed: runtime?.discoveryFailed ?? entry?.discoveryFailed ?? false,
+      lastCheckedAt: runtime?.lastCheckedAt ?? entry?.lastCheckedAt,
       implementationStatus: 'implemented',
     }
   }
@@ -333,6 +355,20 @@ export class ServerConfigStore {
       nextApiKey = payload.apiKey.trim()
     }
 
+    const normalizedNextBaseUrl = nextBaseUrl.replace(/\/+$/, '')
+    const previousBaseUrl = (
+      existing?.baseUrl ??
+      builtIn?.defaultBaseUrl ??
+      ''
+    ).replace(/\/+$/, '')
+
+    const credentialsOrEndpointChanged =
+      (payload.apiKey !== undefined &&
+        payload.apiKey.trim() !== '' &&
+        payload.apiKey.trim() !== existing?.apiKey) ||
+      Boolean(payload.clearApiKey) ||
+      (payload.baseUrl !== undefined && normalizedNextBaseUrl !== previousBaseUrl)
+
     const nextEntry: PersistedProviderEntry = {
       id: targetId,
       isCustom: !isBuiltIn,
@@ -341,12 +377,21 @@ export class ServerConfigStore {
         : payload.name?.trim() || existing?.name || 'Custom Provider',
       apiFormat: isBuiltIn ? builtIn!.apiFormat : 'openai-compatible',
       enabled: payload.enabled ?? existing?.enabled ?? true,
-      baseUrl: nextBaseUrl.replace(/\/+$/, ''),
+      baseUrl: normalizedNextBaseUrl,
       apiKey: nextApiKey,
       defaultModel:
         payload.defaultModel !== undefined
           ? payload.defaultModel.trim()
           : (existing?.defaultModel ?? builtIn?.defaultModel ?? ''),
+      discoveredModels: credentialsOrEndpointChanged
+        ? undefined
+        : existing?.discoveredModels,
+      lastCheckedAt: credentialsOrEndpointChanged
+        ? undefined
+        : existing?.lastCheckedAt,
+      discoveryFailed: credentialsOrEndpointChanged
+        ? false
+        : existing?.discoveryFailed,
     }
 
     this.data.providers[targetId] = nextEntry
@@ -355,12 +400,8 @@ export class ServerConfigStore {
     }
     this.saveToDisk()
 
-    // Reset stale connection status if credentials or endpoint changed
-    if (
-      payload.apiKey !== undefined ||
-      payload.clearApiKey ||
-      payload.baseUrl !== undefined
-    ) {
+    // Reset stale connection status only if credentials or endpoint actually changed
+    if (credentialsOrEndpointChanged) {
       this.runtimeStatus.delete(targetId)
     }
 
@@ -419,13 +460,47 @@ export class ServerConfigStore {
     },
   ): void {
     const prev = this.runtimeStatus.get(id)
+    const nextModels =
+      update.discoveredModels ?? prev?.discoveredModels ?? this.data.providers[id]?.discoveredModels ?? []
+    const nextCheckedAt = update.lastCheckedAt ?? new Date().toISOString()
+    const nextDiscoveryFailed =
+      update.discoveryFailed ??
+      prev?.discoveryFailed ??
+      this.data.providers[id]?.discoveryFailed ??
+      false
+
     this.runtimeStatus.set(id, {
       status: update.status,
       statusMessage: update.statusMessage,
-      discoveredModels: update.discoveredModels ?? prev?.discoveredModels ?? [],
-      lastCheckedAt: update.lastCheckedAt ?? new Date().toISOString(),
+      discoveredModels: nextModels,
+      discoveryFailed: nextDiscoveryFailed,
+      lastCheckedAt: nextCheckedAt,
       cooldownUntil: update.cooldownUntil,
     })
+
+    const builtIn = getBuiltInDefinition(id)
+    const existing = this.data.providers[id]
+    if (existing || builtIn) {
+      const envUrl =
+        builtIn?.id === 'ollama' && process.env.OLLAMA_BASE_URL?.trim()
+          ? process.env.OLLAMA_BASE_URL.trim()
+          : builtIn?.defaultBaseUrl ?? ''
+
+      this.data.providers[id] = {
+        id,
+        isCustom: existing?.isCustom ?? !builtIn,
+        name: existing?.name ?? builtIn?.name,
+        apiFormat: existing?.apiFormat ?? builtIn?.apiFormat,
+        enabled: existing?.enabled ?? true,
+        baseUrl: existing?.baseUrl ?? envUrl,
+        apiKey: existing?.apiKey,
+        defaultModel: existing?.defaultModel ?? builtIn?.defaultModel ?? '',
+        discoveredModels: nextModels,
+        lastCheckedAt: nextCheckedAt,
+        discoveryFailed: nextDiscoveryFailed,
+      }
+      this.saveToDisk()
+    }
   }
 
   isInCooldown(id: ProviderId): boolean {

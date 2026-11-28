@@ -1,5 +1,9 @@
 import type { AiModelInfo } from '../../src/types/ai.ts'
 import {
+  deduplicateModels,
+  isIncompatibleNonTextModel,
+} from './modelCatalog.ts'
+import {
   combineTimeoutSignal,
   mapHttpStatusToErrorCode,
   normalizeBaseUrl,
@@ -12,8 +16,9 @@ import {
 } from './types.ts'
 
 const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const CONNECT_TIMEOUT_MS = 10000
+const CONNECT_TIMEOUT_MS = 15000
 const GENERATE_TIMEOUT_MS = 60000
+const MAX_MODEL_PAGES = 50
 
 interface GeminiModelsResponse {
   models?: Array<{
@@ -22,6 +27,7 @@ interface GeminiModelsResponse {
     supportedGenerationMethods?: string[]
     inputTokenLimit?: number
   }>
+  nextPageToken?: string
   error?: { message?: string }
 }
 
@@ -75,48 +81,93 @@ export const geminiAdapter: ServerAiAdapter = {
     )
 
     try {
-      const response = await fetch(`${baseUrl}/models`, {
-        method: 'GET',
-        headers: {
-          'x-goog-api-key': apiKey,
-        },
-        signal: reqSignal,
-      })
+      const collected: AiModelInfo[] = []
+      let pageToken: string | undefined
+      const seenTokens = new Set<string>()
 
-      if (!response.ok) {
-        const detail = parseApiError(await readSafeResponseText(response))
-        const code = mapHttpStatusToErrorCode(response.status)
-        throw new ProviderRequestError(
-          code === 'unauthorized'
-            ? 'Gemini API key was rejected (HTTP 401/403). Check your key.'
-            : code === 'rate_limited'
-              ? 'Gemini API rate limit reached (HTTP 429). Wait and retry.'
-              : `Gemini returned HTTP ${response.status}${detail ? `: ${detail}` : '.'}`,
-          code,
-          response.status,
-        )
+      for (let page = 0; page < MAX_MODEL_PAGES; page++) {
+        const params = new URLSearchParams({ pageSize: '100' })
+        if (pageToken) {
+          params.set('pageToken', pageToken)
+        }
+
+        const response = await fetch(`${baseUrl}/models?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            'x-goog-api-key': apiKey,
+          },
+          signal: reqSignal,
+        })
+
+        if (!response.ok) {
+          const detail = parseApiError(await readSafeResponseText(response))
+          const code = mapHttpStatusToErrorCode(response.status)
+          throw new ProviderRequestError(
+            code === 'unauthorized'
+              ? 'Gemini API key was rejected (HTTP 401/403). Check your key.'
+              : code === 'rate_limited'
+                ? 'Gemini API rate limit reached (HTTP 429). Wait and retry.'
+                : `Gemini returned HTTP ${response.status}${detail ? `: ${detail}` : '.'}`,
+            code,
+            response.status,
+          )
+        }
+
+        let data: GeminiModelsResponse
+        try {
+          data = (await response.json()) as GeminiModelsResponse
+        } catch (err) {
+          throw new ProviderRequestError(
+            'Gemini /models returned malformed JSON.',
+            'invalid_response',
+            undefined,
+            err,
+          )
+        }
+
+        if (!Array.isArray(data.models)) {
+          throw new ProviderRequestError(
+            'Gemini /models returned an unexpected response.',
+            'invalid_response',
+          )
+        }
+
+        for (const m of data.models) {
+          if (!m?.name) continue
+          const modelId = stripModelPrefix(m.name)
+          const methods = Array.isArray(m.supportedGenerationMethods)
+            ? m.supportedGenerationMethods
+            : undefined
+
+          // Filter out non-generateContent models (e.g. embedding-only models)
+          if (methods && !methods.includes('generateContent')) {
+            continue
+          }
+          if (isIncompatibleNonTextModel(modelId)) {
+            continue
+          }
+
+          const verifiedText = Boolean(methods?.includes('generateContent'))
+          collected.push({
+            name: modelId,
+            displayName: m.displayName?.trim() || modelId,
+            contextWindow: m.inputTokenLimit,
+            verificationStatus: verifiedText ? 'verified_text' : 'listed',
+            capabilityNote: verifiedText
+              ? 'Verified for text generation (generateContent)'
+              : 'Listed by Gemini without generation method metadata',
+          })
+        }
+
+        const nextToken = data.nextPageToken?.trim()
+        if (!nextToken || seenTokens.has(nextToken)) {
+          break
+        }
+        seenTokens.add(nextToken)
+        pageToken = nextToken
       }
 
-      const data = (await response.json()) as GeminiModelsResponse
-      if (!Array.isArray(data.models)) {
-        throw new ProviderRequestError(
-          'Gemini /models returned an unexpected response.',
-          'invalid_response',
-        )
-      }
-
-      return data.models
-        .filter(
-          (m) =>
-            m.name &&
-            (!m.supportedGenerationMethods ||
-              m.supportedGenerationMethods.includes('generateContent')),
-        )
-        .map((m) => ({
-          name: stripModelPrefix(m.name!),
-          displayName: m.displayName || stripModelPrefix(m.name!),
-          contextWindow: m.inputTokenLimit,
-        }))
+      return deduplicateModels(collected)
     } catch (err) {
       if (err instanceof ProviderRequestError) throw err
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -149,14 +200,15 @@ export const geminiAdapter: ServerAiAdapter = {
           connected: true,
           models: [],
           errorCode: 'no_models',
-          message: 'Connected to Gemini API, but no generateContent models were returned.',
+          message:
+            'Connected to Gemini API, but no generateContent text models were returned.',
         }
       }
       return {
         providerId: config.id,
         connected: true,
         models,
-        message: `Connected to Google Gemini (${models.length} models available).`,
+        message: `Connected to Google Gemini (${models.length} models discovered).`,
       }
     } catch (err) {
       const pErr = err instanceof ProviderRequestError ? err : null
@@ -165,7 +217,8 @@ export const geminiAdapter: ServerAiAdapter = {
         connected: false,
         models: [],
         errorCode: pErr?.code ?? 'unknown',
-        message: err instanceof Error ? err.message : 'Gemini connection failed.',
+        message:
+          err instanceof Error ? err.message : 'Gemini connection failed.',
       }
     }
   },

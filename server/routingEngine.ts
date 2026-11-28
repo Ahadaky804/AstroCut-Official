@@ -14,6 +14,7 @@ import {
 import type { ServerConfigStore } from './configStore.ts'
 import { redactSecrets } from './envLoader.ts'
 import { getAdapterForFormat } from './providerRegistry.ts'
+import { deduplicateModels } from './providers/modelCatalog.ts'
 import { ProviderRequestError } from './providers/types.ts'
 
 const COOLDOWN_MS = 45000
@@ -81,17 +82,23 @@ export async function testProviderConnection(
   const adapter = getAdapterForFormat(pub.apiFormat)
   const result = await adapter.testConnection(runtime, signal)
   result.message = redactSecrets(result.message, store.getAllSecrets())
+  const models = result.connected ? deduplicateModels(result.models) : []
+  result.models = models
 
   store.setRuntimeStatus(providerId, {
     status: result.connected ? 'connected' : 'error',
     statusMessage: result.message,
-    discoveredModels: result.models,
+    discoveredModels: models,
+    discoveryFailed: !result.connected,
   })
 
-  if (result.connected && result.models.length > 0 && !pub.defaultModel) {
+  if (result.connected && models.length > 0 && !pub.defaultModel.trim()) {
+    const preferred =
+      models.find((m) => m.verificationStatus === 'verified_text')?.name ??
+      models[0].name
     store.upsertProvider({
       id: providerId,
-      defaultModel: result.models[0].name,
+      defaultModel: preferred,
     })
   }
 
@@ -114,15 +121,27 @@ export async function refreshProviderModels(
 
   const adapter = getAdapterForFormat(pub.apiFormat)
   try {
-    const models = await adapter.listModels(runtime, signal)
+    const models = deduplicateModels(await adapter.listModels(runtime, signal))
     store.setRuntimeStatus(providerId, {
       status: 'connected',
       statusMessage:
         models.length > 0
-          ? `Connected (${models.length} models available).`
-          : 'Connected, but no models returned.',
+          ? `Connected (${models.length} compatible model${models.length === 1 ? '' : 's'} discovered).`
+          : 'Connected, but no compatible models were returned.',
       discoveredModels: models,
+      discoveryFailed: false,
     })
+
+    if (models.length > 0 && !pub.defaultModel.trim()) {
+      const preferred =
+        models.find((m) => m.verificationStatus === 'verified_text')?.name ??
+        models[0].name
+      store.upsertProvider({
+        id: providerId,
+        defaultModel: preferred,
+      })
+    }
+
     return models
   } catch (err) {
     const cleanMsg = redactSecrets(
@@ -132,10 +151,13 @@ export async function refreshProviderModels(
     store.setRuntimeStatus(providerId, {
       status: 'error',
       statusMessage: cleanMsg,
+      discoveredModels: [],
+      discoveryFailed: true,
     })
     throw new ProviderRequestError(
       cleanMsg,
       err instanceof ProviderRequestError ? err.code : 'unknown',
+      err instanceof ProviderRequestError ? err.status : undefined,
     )
   }
 }

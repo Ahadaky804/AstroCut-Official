@@ -121,6 +121,10 @@ export function AiProvidersProvider({ children }: { children: ReactNode }) {
       return res.result
     } catch (err) {
       const msg = getErrMessage(err, 'Connection test failed.')
+      void aiClient
+        .getSystemSnapshot()
+        .then((latest) => setSnapshot(latest))
+        .catch(() => {})
       setError(msg)
       throw new Error(msg, { cause: err })
     } finally {
@@ -136,6 +140,10 @@ export function AiProvidersProvider({ children }: { children: ReactNode }) {
       setSnapshot(res.snapshot)
     } catch (err) {
       const msg = getErrMessage(err, 'Failed to refresh models.')
+      void aiClient
+        .getSystemSnapshot()
+        .then((latest) => setSnapshot(latest))
+        .catch(() => {})
       setError(msg)
       throw new Error(msg, { cause: err })
     } finally {

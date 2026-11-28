@@ -1,5 +1,9 @@
 import type { AiModelInfo } from '../../src/types/ai.ts'
 import {
+  deduplicateModels,
+  isIncompatibleNonTextModel,
+} from './modelCatalog.ts'
+import {
   combineTimeoutSignal,
   mapHttpStatusToErrorCode,
   normalizeBaseUrl,
@@ -13,14 +17,17 @@ import {
 
 const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1'
 const ANTHROPIC_VERSION = '2023-06-01'
-const CONNECT_TIMEOUT_MS = 10000
+const CONNECT_TIMEOUT_MS = 15000
 const GENERATE_TIMEOUT_MS = 60000
+const MAX_MODEL_PAGES = 50
 
 interface AnthropicModelsResponse {
   data?: Array<{
     id?: string
     display_name?: string
   }>
+  has_more?: boolean
+  last_id?: string
 }
 
 interface AnthropicMessagesResponse {
@@ -68,43 +75,80 @@ export const anthropicAdapter: ServerAiAdapter = {
     )
 
     try {
-      const response = await fetch(`${baseUrl}/models`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': ANTHROPIC_VERSION,
-        },
-        signal: reqSignal,
-      })
+      const collected: AiModelInfo[] = []
+      let afterId: string | undefined
+      const seenCursors = new Set<string>()
 
-      if (!response.ok) {
-        const detail = parseError(await readSafeResponseText(response))
-        const code = mapHttpStatusToErrorCode(response.status)
-        throw new ProviderRequestError(
-          code === 'unauthorized'
-            ? 'Anthropic API key was rejected (HTTP 401/403).'
-            : code === 'rate_limited'
-              ? 'Anthropic API rate limit reached (HTTP 429).'
-              : `Anthropic returned HTTP ${response.status}${detail ? `: ${detail}` : '.'}`,
-          code,
-          response.status,
-        )
+      for (let page = 0; page < MAX_MODEL_PAGES; page++) {
+        const params = new URLSearchParams({ limit: '100' })
+        if (afterId) {
+          params.set('after_id', afterId)
+        }
+
+        const response = await fetch(`${baseUrl}/models?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': ANTHROPIC_VERSION,
+          },
+          signal: reqSignal,
+        })
+
+        if (!response.ok) {
+          const detail = parseError(await readSafeResponseText(response))
+          const code = mapHttpStatusToErrorCode(response.status)
+          throw new ProviderRequestError(
+            code === 'unauthorized'
+              ? 'Anthropic API key was rejected (HTTP 401/403).'
+              : code === 'rate_limited'
+                ? 'Anthropic API rate limit reached (HTTP 429).'
+                : `Anthropic returned HTTP ${response.status}${detail ? `: ${detail}` : '.'}`,
+            code,
+            response.status,
+          )
+        }
+
+        let data: AnthropicModelsResponse
+        try {
+          data = (await response.json()) as AnthropicModelsResponse
+        } catch (err) {
+          throw new ProviderRequestError(
+            'Anthropic /models returned malformed JSON.',
+            'invalid_response',
+            undefined,
+            err,
+          )
+        }
+
+        if (!Array.isArray(data.data)) {
+          throw new ProviderRequestError(
+            'Anthropic /models returned an unexpected response.',
+            'invalid_response',
+          )
+        }
+
+        for (const m of data.data) {
+          if (!m?.id || typeof m.id !== 'string' || !m.id.trim()) continue
+          const modelId = m.id.trim()
+          if (isIncompatibleNonTextModel(modelId)) continue
+
+          collected.push({
+            name: modelId,
+            displayName: m.display_name?.trim() || modelId,
+            verificationStatus: 'listed',
+            capabilityNote: 'Listed by Anthropic Messages API',
+          })
+        }
+
+        const nextCursor = data.last_id?.trim()
+        if (!data.has_more || !nextCursor || seenCursors.has(nextCursor)) {
+          break
+        }
+        seenCursors.add(nextCursor)
+        afterId = nextCursor
       }
 
-      const data = (await response.json()) as AnthropicModelsResponse
-      if (!Array.isArray(data.data)) {
-        throw new ProviderRequestError(
-          'Anthropic /models returned an unexpected response.',
-          'invalid_response',
-        )
-      }
-
-      return data.data
-        .filter((m): m is { id: string; display_name?: string } => Boolean(m.id))
-        .map((m) => ({
-          name: m.id,
-          displayName: m.display_name || m.id,
-        }))
+      return deduplicateModels(collected)
     } catch (err) {
       if (err instanceof ProviderRequestError) throw err
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -131,11 +175,20 @@ export const anthropicAdapter: ServerAiAdapter = {
   async testConnection(config, signal) {
     try {
       const models = await anthropicAdapter.listModels(config, signal)
+      if (models.length === 0) {
+        return {
+          providerId: config.id,
+          connected: true,
+          models: [],
+          errorCode: 'no_models',
+          message: 'Connected to Anthropic Claude, but no models were returned.',
+        }
+      }
       return {
         providerId: config.id,
         connected: true,
         models,
-        message: `Connected to Anthropic Claude (${models.length} models available).`,
+        message: `Connected to Anthropic Claude (${models.length} models discovered).`,
       }
     } catch (err) {
       const pErr = err instanceof ProviderRequestError ? err : null

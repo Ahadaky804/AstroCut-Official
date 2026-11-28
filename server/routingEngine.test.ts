@@ -77,7 +77,8 @@ describe('AstroCut Universal Multi-Provider AI Architecture', () => {
     await withMockServers(
       (req, res) => {
         res.setHeader('Content-Type', 'application/json')
-        if (req.url === '/models' && req.method === 'GET') {
+        const parsedUrl = new URL(req.url ?? '/', 'http://localhost')
+        if (parsedUrl.pathname === '/models' && req.method === 'GET') {
           if (req.headers['x-goog-api-key'] !== 'valid-gemini-key') {
             res.statusCode = 401
             res.end(JSON.stringify({ error: { message: 'API key invalid' } }))

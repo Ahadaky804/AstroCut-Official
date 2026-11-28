@@ -50,6 +50,8 @@ export interface ProviderCapabilities {
   requiresApiKey: boolean
 }
 
+export type ModelVerificationStatus = 'verified_text' | 'listed'
+
 export interface AiModelInfo {
   name: string
   displayName?: string
@@ -57,6 +59,8 @@ export interface AiModelInfo {
   parameterSize?: string
   quantization?: string
   contextWindow?: number
+  verificationStatus?: ModelVerificationStatus
+  capabilityNote?: string
 }
 
 export type AiErrorCode =
@@ -95,6 +99,7 @@ export interface ProviderPublicConfig {
   capabilities: ProviderCapabilities
   status: ProviderConnectionStatus
   statusMessage: string
+  discoveryFailed?: boolean
   discoveredModels: AiModelInfo[]
   lastCheckedAt?: string
   implementationStatus: 'implemented' | 'prepared'

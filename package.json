@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "preview": "vite preview",
     "start": "node server/standalone.ts",
-    "test": "node --test server/routingEngine.test.ts"
+    "test": "node --test server/*.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.82.0",

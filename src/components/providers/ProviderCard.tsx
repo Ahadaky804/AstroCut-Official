@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAiProviders } from '../../context/AiProvidersContext'
 import type { ProviderConnectionStatus, ProviderPublicConfig } from '../../types/ai'
+import { buildModelSelectState } from '../../utils/modelOptions'
 import { Badge, Button, Card, Select, Tooltip, type BadgeVariant } from '../ui'
 
 interface ProviderCardProps {
@@ -52,26 +53,7 @@ export function ProviderCard({
   const isTesting = testingProviderId === provider.id
   const isRefreshing = refreshingProviderId === provider.id
 
-  const modelOptions = (() => {
-    const names = new Set<string>()
-    for (const m of provider.discoveredModels) {
-      names.add(m.name)
-    }
-    if (provider.defaultModel) {
-      names.add(provider.defaultModel)
-    }
-    const list = Array.from(names)
-    if (list.length === 0) {
-      return [
-        {
-          value: '',
-          label: 'No models loaded (Test Connection or Configure)',
-          disabled: true,
-        },
-      ]
-    }
-    return list.map((name) => ({ value: name, label: name }))
-  })()
+  const modelState = buildModelSelectState(provider)
 
   return (
     <Card
@@ -156,10 +138,26 @@ export function ProviderCard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-end">
           <div className="sm:col-span-6">
             <Select
-              label="Active Model"
-              value={provider.defaultModel || provider.discoveredModels[0]?.name || ''}
-              options={modelOptions}
-              disabled={modelOptions[0]?.value === ''}
+              label={
+                modelState.discoveredCount > 0
+                  ? `Active Model (${modelState.discoveredCount} discovered)`
+                  : 'Active Model'
+              }
+              hint={
+                modelState.discoveredCount > 0
+                  ? modelState.verifiedCount > 0
+                    ? `${modelState.verifiedCount} verified text · ${modelState.discoveredCount} compatible total`
+                    : `${modelState.discoveredCount} compatible model${modelState.discoveredCount === 1 ? '' : 's'} discovered`
+                  : undefined
+              }
+              error={
+                modelState.discoveryFailed
+                  ? 'Model discovery failed — inspect message below and retry.'
+                  : undefined
+              }
+              value={modelState.selectedValue}
+              options={modelState.options}
+              disabled={!modelState.hasSelectableModels}
               onChange={(event) =>
                 void saveProvider({
                   id: provider.id,

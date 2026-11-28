@@ -1,5 +1,9 @@
 import type { AiModelInfo } from '../../src/types/ai.ts'
 import {
+  deduplicateModels,
+  isIncompatibleNonTextModel,
+} from './modelCatalog.ts'
+import {
   combineTimeoutSignal,
   mapHttpStatusToErrorCode,
   normalizeBaseUrl,
@@ -64,7 +68,18 @@ export const ollamaAdapter: ServerAiAdapter = {
         )
       }
 
-      const data = (await response.json()) as OllamaTagsResponse
+      let data: OllamaTagsResponse
+      try {
+        data = (await response.json()) as OllamaTagsResponse
+      } catch (err) {
+        throw new ProviderRequestError(
+          'Ollama /api/tags returned malformed JSON.',
+          'invalid_response',
+          undefined,
+          err,
+        )
+      }
+
       if (!Array.isArray(data.models)) {
         throw new ProviderRequestError(
           'Ollama /api/tags did not include a models list.',
@@ -72,16 +87,24 @@ export const ollamaAdapter: ServerAiAdapter = {
         )
       }
 
-      return data.models
-        .filter((m): m is NonNullable<typeof m> & { name: string } =>
-          Boolean(m && typeof m.name === 'string' && m.name.trim()),
-        )
-        .map((m) => ({
-          name: m.name.trim(),
+      const collected: AiModelInfo[] = []
+      for (const m of data.models) {
+        if (!m || typeof m.name !== 'string' || !m.name.trim()) continue
+        const modelName = m.name.trim()
+        if (isIncompatibleNonTextModel(modelName)) continue
+
+        collected.push({
+          name: modelName,
+          displayName: modelName,
           sizeBytes: typeof m.size === 'number' ? m.size : undefined,
           parameterSize: m.details?.parameter_size,
           quantization: m.details?.quantization_level,
-        }))
+          verificationStatus: 'listed',
+          capabilityNote: 'Installed in local Ollama (/api/tags)',
+        })
+      }
+
+      return deduplicateModels(collected)
     } catch (err) {
       if (err instanceof ProviderRequestError) throw err
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -115,7 +138,7 @@ export const ollamaAdapter: ServerAiAdapter = {
           models: [],
           errorCode: 'no_models',
           message:
-            'Ollama is running, but no models are installed yet. Pull a model (e.g. "ollama pull llama3.2:3b") and click Refresh Models.',
+            'Ollama is running, but no compatible models are installed yet. Pull a model (e.g. "ollama pull llama3.2:3b") and click Models.',
         }
       }
       return {

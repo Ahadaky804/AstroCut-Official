@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, Cpu, Sliders, Sparkles } from 'lucide-react'
 import { useAiProviders } from '../../context/AiProvidersContext'
 import type { OperatingMode, ProviderId } from '../../types/ai'
 import { cn } from '../../utils/cn'
+import { buildModelSelectState } from '../../utils/modelOptions'
 import { Badge, Button, Card, Select } from '../ui'
 
 /**
@@ -15,23 +16,11 @@ export function RoutingSettingsCard() {
   const selectedDefaultProvider =
     providers.find((p) => p.id === routing.defaultProviderId) ?? providers[0]
 
-  const defaultModelOptions = (() => {
-    const names = new Set<string>()
-    for (const m of selectedDefaultProvider?.discoveredModels ?? []) {
-      names.add(m.name)
-    }
-    if (selectedDefaultProvider?.defaultModel) {
-      names.add(selectedDefaultProvider.defaultModel)
-    }
-    if (routing.defaultModel) {
-      names.add(routing.defaultModel)
-    }
-    const items = Array.from(names)
-    if (items.length === 0) {
-      return [{ value: '', label: 'Use provider default / discovered model' }]
-    }
-    return items.map((name) => ({ value: name, label: name }))
-  })()
+  const defaultModelState = buildModelSelectState(
+    selectedDefaultProvider,
+    routing.defaultModel,
+    { allowAutoDefault: true },
+  )
 
   const movePriority = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction
@@ -125,12 +114,16 @@ export function RoutingSettingsCard() {
           />
 
           <Select
-            label="Default Model"
-            value={routing.defaultModel}
+            label={
+              defaultModelState.discoveredCount > 0
+                ? `Default Model (${defaultModelState.discoveredCount} available)`
+                : 'Default Model'
+            }
+            value={defaultModelState.selectedValue}
             onChange={(event) =>
               void updateRouting({ defaultModel: event.target.value })
             }
-            options={defaultModelOptions}
+            options={defaultModelState.options}
           />
         </div>
 

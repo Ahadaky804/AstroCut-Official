@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 import { useAiProviders } from '../../context/AiProvidersContext'
 import { useStudio } from '../../context/StudioContext'
 import type { ProviderId } from '../../types/ai'
+import { buildModelSelectState } from '../../utils/modelOptions'
 import { Badge, buttonStyles, Button, Card, Select, type BadgeVariant } from '../ui'
 import { OllamaSetupModal } from './OllamaSetupModal'
 
@@ -55,25 +56,7 @@ export function StudioAiEnginePanel() {
     : STATUS_BADGE.not_configured
   const isLocal = activeProvider?.capabilities.kind === 'local'
 
-  const modelOptions = (() => {
-    const names = new Set<string>()
-    for (const m of activeProvider?.discoveredModels ?? []) {
-      names.add(m.name)
-    }
-    if (activeProvider?.defaultModel) names.add(activeProvider.defaultModel)
-    if (manualModel) names.add(manualModel)
-    const list = Array.from(names)
-    if (list.length === 0) {
-      return [
-        {
-          value: '',
-          label: 'No models loaded (test connection or configure)',
-          disabled: true,
-        },
-      ]
-    }
-    return list.map((m) => ({ value: m, label: m }))
-  })()
+  const modelState = buildModelSelectState(activeProvider, manualModel)
 
   return (
     <>
@@ -161,11 +144,15 @@ export function StudioAiEnginePanel() {
 
                 <div className="lg:col-span-3">
                   <Select
-                    label="Model (Manual)"
-                    value={manualModel}
-                    disabled={isGenerating || modelOptions[0]?.value === ''}
+                    label={
+                      modelState.discoveredCount > 0
+                        ? `Model (${modelState.discoveredCount} available)`
+                        : 'Model (Manual)'
+                    }
+                    value={modelState.selectedValue}
+                    disabled={isGenerating || !modelState.hasSelectableModels}
                     onChange={(e) => setManualModel(e.target.value)}
-                    options={modelOptions}
+                    options={modelState.options}
                   />
                 </div>
               </>

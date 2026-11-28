@@ -20,11 +20,11 @@ export function QuickActionsSection({ actions }: QuickActionsSectionProps) {
           return (
             <div
               key={action.id}
-              className="flex flex-col justify-between gap-4 rounded-xl border border-edge-subtle bg-elevated/45 p-4"
+              className="flex flex-col justify-between gap-4 rounded-xl border border-edge-subtle bg-elevated p-4 transition-colors hover:border-edge-default"
             >
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge-default bg-card text-accent">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge-subtle bg-card text-accent">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <Badge variant={action.available ? 'success' : 'outline'}>

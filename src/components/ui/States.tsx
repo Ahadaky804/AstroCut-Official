@@ -13,7 +13,7 @@ export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn('animate-pulse rounded-md bg-elevated', className)}
+      className={cn('animate-pulse rounded-md bg-subtle', className)}
     />
   )
 }
@@ -39,12 +39,12 @@ export function LoadingState({
       role="status"
       aria-live="polite"
       className={cn(
-        'flex flex-col items-center justify-center rounded-xl border border-edge-subtle bg-card text-center',
+        'flex flex-col items-center justify-center rounded-xl border border-edge-subtle bg-elevated/70 text-center',
         compact ? 'px-4 py-6' : 'px-6 py-10',
         className,
       )}
     >
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-accent-soft text-accent">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
       </div>
       <p className="text-sm font-medium text-content-primary">{label}</p>
@@ -78,11 +78,11 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-xl border border-dashed border-edge-default bg-card/60 px-6 py-10 text-center',
+        'flex flex-col items-center justify-center rounded-xl border border-dashed border-edge-default bg-elevated/75 px-6 py-10 text-center',
         className,
       )}
     >
-      <div className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-edge-subtle bg-elevated text-accent">
+      <div className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-edge-subtle bg-card text-accent shadow-xs">
         {icon}
       </div>
       <h3 className="text-sm font-semibold text-content-primary">{title}</h3>

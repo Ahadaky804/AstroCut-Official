@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import { useId, type SelectHTMLAttributes } from 'react'
 import { cn } from '../../utils/cn'
+import { fieldControlStyles } from './fieldStyles'
 
 export interface SelectOption {
   value: string
@@ -51,15 +52,10 @@ export function Select({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error || hint ? messageId : undefined}
-          className={cn(
-            'h-10 w-full appearance-none rounded-lg border bg-input py-2 pr-9 pl-3 text-sm text-content-primary',
-            'transition-colors duration-150',
-            'disabled:cursor-not-allowed disabled:opacity-60',
-            error
-              ? 'border-danger focus:border-danger'
-              : 'border-edge-default hover:border-edge-strong focus:border-accent',
-            className,
-          )}
+          className={fieldControlStyles({
+            hasError: Boolean(error),
+            className: cn('h-10 appearance-none py-2 pr-9 pl-3', className),
+          })}
           {...props}
         >
           {options.map((option) => (

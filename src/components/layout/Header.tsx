@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 /**
- * Sticky top bar showing active route context, theme toggle, and mobile navigation trigger.
+ * Sticky top bar showing active route context, Obsidian Blue theme switcher, and mobile navigation trigger.
  */
 export function Header({ isSidebarOpen, onOpenSidebar }: HeaderProps) {
   const { pathname } = useLocation()
@@ -24,7 +24,7 @@ export function Header({ isSidebarOpen, onOpenSidebar }: HeaderProps) {
     theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-edge-subtle bg-canvas/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-edge-subtle bg-sidebar/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <Button
           variant="outline"
@@ -52,15 +52,19 @@ export function Header({ isSidebarOpen, onOpenSidebar }: HeaderProps) {
         <Tooltip content={nextThemeLabel} side="bottom">
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={toggleTheme}
             aria-label={nextThemeLabel}
+            className="px-2.5 sm:px-3"
           >
             {theme === 'dark' ? (
-              <Sun className="h-4 w-4 text-warning" aria-hidden="true" />
+              <Moon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
             ) : (
-              <Moon className="h-4 w-4 text-accent" aria-hidden="true" />
+              <Sun className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
             )}
+            <span className="hidden sm:inline">
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </span>
           </Button>
         </Tooltip>
 

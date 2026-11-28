@@ -1,5 +1,6 @@
 import { useId, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '../../utils/cn'
+import { fieldControlStyles } from './fieldStyles'
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -55,17 +56,15 @@ export function Input({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error || hint ? messageId : undefined}
-          className={cn(
-            'h-10 w-full rounded-lg border bg-input px-3 text-sm text-content-primary placeholder:text-content-muted',
-            'transition-colors duration-150',
-            'disabled:cursor-not-allowed disabled:opacity-60',
-            error
-              ? 'border-danger focus:border-danger'
-              : 'border-edge-default hover:border-edge-strong focus:border-accent',
-            Boolean(leftIcon) && 'pl-9',
-            Boolean(rightElement) && 'pr-10',
-            className,
-          )}
+          className={fieldControlStyles({
+            hasError: Boolean(error),
+            className: cn(
+              'h-10 px-3',
+              Boolean(leftIcon) && 'pl-9',
+              Boolean(rightElement) && 'pr-10',
+              className,
+            ),
+          })}
           {...props}
         />
 

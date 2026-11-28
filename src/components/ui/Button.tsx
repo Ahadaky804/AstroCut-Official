@@ -16,13 +16,13 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-white shadow-xs hover:bg-accent-hover active:translate-y-px border border-transparent',
+    'bg-accent text-on-accent font-semibold shadow-xs hover:bg-accent-hover active:bg-accent-active border border-transparent',
   secondary:
-    'bg-secondary-soft text-secondary border border-secondary/30 hover:bg-secondary/20',
+    'bg-accent-soft text-accent border border-accent/25 hover:bg-accent/20',
   outline:
-    'bg-elevated/70 text-content-primary border border-edge-default hover:bg-elevated hover:border-edge-strong',
+    'bg-card text-content-primary border border-edge-default hover:bg-elevated hover:border-edge-strong',
   ghost:
-    'bg-transparent text-content-secondary border border-transparent hover:bg-elevated/80 hover:text-content-primary',
+    'bg-transparent text-content-secondary border border-transparent hover:bg-subtle hover:text-content-primary',
   danger:
     'bg-danger-soft text-danger border border-danger/30 hover:bg-danger/20',
 }

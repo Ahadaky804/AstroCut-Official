@@ -19,7 +19,7 @@ const VARIANT_CLASSES: Record<CardVariant, string> = {
   default: 'bg-card border-edge-subtle',
   elevated: 'bg-elevated border-edge-default',
   interactive:
-    'bg-card border-edge-subtle transition-colors duration-150 hover:border-edge-strong hover:bg-elevated/65',
+    'bg-card border-edge-subtle transition-colors duration-150 hover:border-edge-strong hover:bg-elevated/70',
 }
 
 const PADDING_CLASSES: Record<CardPadding, string> = {

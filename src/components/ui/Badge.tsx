@@ -19,13 +19,13 @@ export interface BadgeProps {
 }
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  neutral: 'bg-elevated text-content-secondary border-edge-subtle',
-  primary: 'bg-accent-soft text-accent border-accent/30',
-  secondary: 'bg-secondary-soft text-secondary border-secondary/30',
-  success: 'bg-success-soft text-success border-success/30',
-  warning: 'bg-warning-soft text-warning border-warning/30',
-  danger: 'bg-danger-soft text-danger border-danger/30',
-  outline: 'bg-transparent text-content-secondary border-edge-default',
+  neutral: 'bg-subtle text-content-secondary border-edge-subtle',
+  primary: 'bg-accent-soft text-accent border-accent/25',
+  secondary: 'bg-secondary-soft text-secondary border-secondary/25',
+  success: 'bg-success-soft text-success border-success/25',
+  warning: 'bg-warning-soft text-warning border-warning/25',
+  danger: 'bg-danger-soft text-danger border-danger/25',
+  outline: 'bg-elevated/70 text-content-secondary border-edge-default',
 }
 
 const DOT_CLASSES: Record<BadgeVariant, string> = {

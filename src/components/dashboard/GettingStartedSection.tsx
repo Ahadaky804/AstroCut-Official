@@ -48,7 +48,7 @@ export function GettingStartedSection({ steps }: GettingStartedSectionProps) {
         {steps.map((step) => (
           <li
             key={step.id}
-            className="flex items-start gap-3.5 rounded-xl border border-edge-subtle bg-elevated/45 p-4"
+            className="flex items-start gap-3.5 rounded-xl border border-edge-subtle bg-elevated p-4"
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-xs font-semibold text-accent">
               {step.stepNumber}

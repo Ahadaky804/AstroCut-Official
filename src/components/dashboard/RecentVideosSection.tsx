@@ -41,7 +41,7 @@ export function RecentVideosSection({ videos }: RecentVideosSectionProps) {
             return (
               <li
                 key={video.id}
-                className="flex flex-col gap-3 rounded-xl border border-edge-subtle bg-elevated/45 p-3 sm:flex-row sm:items-center"
+                className="flex flex-col gap-3 rounded-xl border border-edge-subtle bg-elevated p-3 sm:flex-row sm:items-center"
               >
                 <div className="flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-lg border border-edge-subtle bg-card sm:w-28">
                   {video.thumbnailUrl ? (

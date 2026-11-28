@@ -36,8 +36,8 @@ export function NavItem({
           'group relative flex items-center rounded-lg text-sm font-medium transition-colors duration-150',
           collapsed ? 'h-10 w-10 justify-center mx-auto' : 'gap-3 px-3 py-2.5',
           isActive
-            ? 'bg-accent-soft text-accent border border-accent/25'
-            : 'border border-transparent text-content-secondary hover:bg-elevated/80 hover:text-content-primary',
+            ? 'bg-accent-soft text-accent border border-accent/25 shadow-2xs'
+            : 'border border-transparent text-content-secondary hover:bg-subtle hover:text-content-primary',
         )
       }
     >

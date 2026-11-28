@@ -53,7 +53,7 @@ export function Sidebar({
           )}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/35 bg-accent-soft text-accent shadow-xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent-soft text-accent">
               <Clapperboard className="h-4 w-4" aria-hidden="true" />
             </div>
 
@@ -103,7 +103,7 @@ export function Sidebar({
 
         <div className="space-y-3 border-t border-edge-subtle p-3">
           {!isCollapsed && (
-            <div className="rounded-xl border border-edge-subtle bg-elevated/60 p-3">
+            <div className="rounded-xl border border-edge-subtle bg-elevated p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-content-primary">
                   Workspace

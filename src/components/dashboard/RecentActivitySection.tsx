@@ -67,7 +67,7 @@ export function RecentActivitySection({
             return (
               <li
                 key={item.id}
-                className="flex items-start gap-3 rounded-xl border border-edge-subtle bg-elevated/45 p-3.5"
+                className="flex items-start gap-3 rounded-xl border border-edge-subtle bg-elevated p-3.5"
               >
                 <div
                   className={cn(

@@ -1,5 +1,6 @@
 import { useId, type TextareaHTMLAttributes } from 'react'
 import { cn } from '../../utils/cn'
+import { fieldControlStyles } from './fieldStyles'
 
 export interface TextareaProps
   extends TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -44,15 +45,10 @@ export function Textarea({
         disabled={disabled}
         aria-invalid={Boolean(error)}
         aria-describedby={error || hint ? messageId : undefined}
-        className={cn(
-          'w-full rounded-lg border bg-input px-3 py-2.5 text-sm leading-relaxed text-content-primary placeholder:text-content-muted',
-          'transition-colors duration-150 resize-y',
-          'disabled:cursor-not-allowed disabled:opacity-60',
-          error
-            ? 'border-danger focus:border-danger'
-            : 'border-edge-default hover:border-edge-strong focus:border-accent',
-          className,
-        )}
+        className={fieldControlStyles({
+          hasError: Boolean(error),
+          className: cn('px-3 py-2.5 leading-relaxed resize-y', className),
+        })}
         {...props}
       />
 
